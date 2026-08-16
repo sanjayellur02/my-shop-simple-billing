@@ -113,7 +113,8 @@ fun BillingScreen(
     // field when a product is selected, and back to search when the selection
     // is cleared. Done in a LaunchedEffect so the focusRequester is always
     // attached when requested.
-    LaunchedEffect(state.selectedProduct, state.showRateEditor, state.scanNonce) {
+    LaunchedEffect(state.selectedProduct, state.showRateEditor, state.showPricePicker, state.scanNonce) {
+        if (state.showPricePicker) return@LaunchedEffect
         val product = state.selectedProduct
         if (product != null) {
             if (state.showRateEditor) rateFocus.requestFocus()
@@ -309,6 +310,39 @@ fun BillingScreen(
         )
     }
 
+    if (state.showPricePicker) {
+        state.selectedProduct?.let { product ->
+            AlertDialog(
+                onDismissRequest = billingViewModel::cancelPricePick,
+                title = { Text(product.name) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Choose a price", style = MaterialTheme.typography.bodyMedium)
+                        state.priceOptions.forEach { option ->
+                            OutlinedButton(
+                                onClick = { billingViewModel.onPriceOptionSelected(option) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    buildString {
+                                        append(Money.paiseToDisplay(option.pricePaise))
+                                        if (option.unit.isNotBlank()) append(" / ${option.unit}")
+                                    }
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = billingViewModel::cancelPricePick) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+    }
+
     if (showNewBillDialog) {
         AlertDialog(
             onDismissRequest = { showNewBillDialog = false },
@@ -414,8 +448,11 @@ private fun SelectedProductCard(
                     Text(product.name, style = MaterialTheme.typography.titleMedium)
                     Text(
                         buildString {
-                            append(Money.paiseToDisplay(product.sellingPricePaise))
-                            if (product.unit.isNotBlank()) append(" / ${product.unit}")
+                            val shownPaise = Money.parseRupeesToPaise(state.rateText)
+                                ?: product.sellingPricePaise
+                            append(Money.paiseToDisplay(shownPaise))
+                            val unit = state.selectedUnit.ifEmpty { product.unit }
+                            if (unit.isNotBlank()) append(" / $unit")
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

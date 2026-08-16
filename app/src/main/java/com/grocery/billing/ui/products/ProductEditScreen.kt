@@ -2,12 +2,20 @@ package com.grocery.billing.ui.products
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,7 +80,7 @@ fun ProductEditScreen(navController: NavHostController, factory: ViewModelFactor
                 onValueChange = viewModel::onPriceChange,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("Selling Price ₹") },
+                label = { Text("Selling Price ₹ (Default)") },
                 placeholder = { Text("0") },
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                     keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
@@ -102,6 +110,58 @@ fun ProductEditScreen(navController: NavHostController, factory: ViewModelFactor
                 ),
                 textStyle = MaterialTheme.typography.titleLarge
             )
+
+            if (state.extraPrices.isNotEmpty()) {
+                HorizontalDivider()
+                Text(
+                    "Additional Prices (used during billing to pick a price)",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                state.extraPrices.forEach { draft ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = draft.priceText,
+                            onValueChange = { viewModel.onExtraPriceChange(draft.key, it) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("Price ₹") },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                            ),
+                            textStyle = MaterialTheme.typography.titleLarge
+                        )
+                        OutlinedTextField(
+                            value = draft.unit,
+                            onValueChange = { viewModel.onExtraUnitChange(draft.key, it) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("Unit") },
+                            placeholder = { Text("kg, pcs") },
+                            textStyle = MaterialTheme.typography.titleLarge
+                        )
+                        IconButton(onClick = { viewModel.removeExtraPrice(draft.key) }) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = "Remove price",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = viewModel::addExtraPrice,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Add Another Price")
+            }
 
             state.error?.let { ErrorText(it) }
 

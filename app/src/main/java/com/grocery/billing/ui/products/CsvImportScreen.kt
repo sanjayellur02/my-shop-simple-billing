@@ -103,12 +103,14 @@ private fun IdleContent(onPickFile: () -> Unit, onCancel: () -> Unit) {
                 Text("id,product_name,price,unit,barcode", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Text("101,Rice,70,kg", style = MaterialTheme.typography.bodyMedium)
+                Text("101,Rice,140,2kg", style = MaterialTheme.typography.bodyMedium)
                 Text("102,Sugar,45,kg", style = MaterialTheme.typography.bodyMedium)
                 Text("103,Sunflower Oil,175,ltr,8901234567890", style = MaterialTheme.typography.bodyMedium)
             }
         }
         Text(
-            "Only id and product_name are required. price, unit and barcode are optional. Duplicate IDs are skipped.",
+            "Only id and product_name are required. price, unit and barcode are optional. " +
+                "Repeat a product id on more rows to add extra selling prices (the first row is the default price).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

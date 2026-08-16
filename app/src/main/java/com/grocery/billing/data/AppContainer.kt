@@ -11,7 +11,7 @@ class AppContainer(context: Context) {
 
     private val database = AppDatabase.getInstance(context)
 
-    val productRepository = ProductRepository(database.productDao())
+    val productRepository = ProductRepository(database.productDao(), database.productPriceDao())
     val billRepository = BillRepository(database.billDao(), database.billItemDao())
     val heldBillRepository = HeldBillRepository(database.heldBillDao(), database.heldBillItemDao())
     val settingsRepository = SettingsRepository(database.settingsDao())

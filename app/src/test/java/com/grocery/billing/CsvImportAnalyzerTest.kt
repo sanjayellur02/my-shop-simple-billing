@@ -107,4 +107,25 @@ class CsvImportAnalyzerTest {
         assertEquals(1, result.invalidCount)
         assertEquals(5000L, result.valid[0].sellingPricePaise)
     }
+
+    @Test
+    fun repeatedIdWithPriceAddsExtraOption() {
+        val result = analyze("id,product_name,price,unit\n101,Rice,70,kg\n101,Rice,140,2kg")
+        assertEquals(2, result.totalRows)
+        assertEquals(1, result.valid.size)
+        assertEquals(0, result.duplicateCount)
+        assertEquals(7000L, result.valid[0].sellingPricePaise)
+        assertEquals("kg", result.valid[0].unit)
+        assertEquals(1, result.valid[0].extraOptions.size)
+        assertEquals(14000L, result.valid[0].extraOptions[0].sellingPricePaise)
+        assertEquals("2kg", result.valid[0].extraOptions[0].unit)
+    }
+
+    @Test
+    fun repeatedIdWithoutPriceStaysDuplicate() {
+        val result = analyze("id,product_name,price\n101,Rice,70\n101,Rice")
+        assertEquals(1, result.valid.size)
+        assertEquals(1, result.duplicateCount)
+        assertEquals(0, result.valid[0].extraOptions.size)
+    }
 }

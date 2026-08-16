@@ -7,6 +7,7 @@ import com.grocery.billing.data.entity.BillItem
 import com.grocery.billing.data.entity.HeldBill
 import com.grocery.billing.data.entity.HeldBillItem
 import com.grocery.billing.data.entity.Product
+import com.grocery.billing.data.entity.ProductPriceOption
 import com.grocery.billing.data.repository.SettingsRepository
 import com.grocery.billing.util.Dates
 import androidx.room.withTransaction
@@ -27,13 +28,14 @@ class BackupManager(private val context: Context) {
     suspend fun buildBackupJson(): String {
         val settings = settingsRepository.getAll()
         val products = database.productDao().getAll()
+        val productPrices = database.productPriceDao().getAll()
         val bills = database.billDao().getAll()
         val items = database.billItemDao().getAll()
         val heldBills = database.heldBillDao().getAll()
         val heldItems = database.heldBillItemDao().getAll()
 
         val root = JSONObject()
-        root.put("version", 2)
+        root.put("version", 3)
         root.put("exportedAt", Dates.isoTimestamp())
 
         root.put("settings", JSONObject().apply {
@@ -50,6 +52,15 @@ class BackupManager(private val context: Context) {
                     .put("barcode", p.barcode ?: JSONObject.NULL)
                     .put("createdAt", p.createdAt)
                     .put("updatedAt", p.updatedAt))
+            }
+        })
+
+        root.put("productPrices", JSONArray().apply {
+            productPrices.forEach { p ->
+                put(JSONObject()
+                    .put("productId", p.productId)
+                    .put("sellingPrice", p.sellingPricePaise)
+                    .put("unit", p.unit))
             }
         })
 
@@ -123,13 +134,14 @@ class BackupManager(private val context: Context) {
         } catch (e: Exception) {
             return RestoreResult(false, "Not a valid backup file.")
         }
-        if (root.optInt("version", -1) !in setOf(1, 2)) {
+        if (root.optInt("version", -1) !in setOf(1, 2, 3)) {
             return RestoreResult(false, "Unsupported backup version.")
         }
 
         return try {
             database.withTransaction {
                 val products = parseProducts(root.optJSONArray("products"))
+                val productPrices = parseProductPrices(root.optJSONArray("productPrices"))
                 val bills = parseBills(root.optJSONArray("bills"))
                 val items = parseBillItems(root.optJSONArray("billItems"))
                 val heldBills = parseHeldBills(root.optJSONArray("heldBills"))
@@ -140,9 +152,11 @@ class BackupManager(private val context: Context) {
                 database.heldBillItemDao().deleteAll()
                 database.heldBillDao().deleteAll()
                 database.productDao().deleteAll() // clear via separate statement
+                database.productPriceDao().deleteAll()
                 database.settingsDao().deleteAll()
 
                 database.productDao().insertAll(products)
+                if (productPrices.isNotEmpty()) database.productPriceDao().insertAll(productPrices)
                 bills.forEach { database.billDao().insert(it) }
                 if (items.isNotEmpty()) database.billItemDao().insertAll(items)
                 heldBills.forEach { database.heldBillDao().insert(it) }
@@ -169,6 +183,18 @@ class BackupManager(private val context: Context) {
                 barcode = if (o.isNull("barcode")) null else o.optString("barcode", ""),
                 createdAt = o.optString("createdAt", ""),
                 updatedAt = o.optString("updatedAt", "")
+            )
+        }
+    }
+
+    private fun parseProductPrices(arr: JSONArray?): List<ProductPriceOption> {
+        if (arr == null) return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.getJSONObject(i)
+            ProductPriceOption(
+                productId = o.getString("productId"),
+                sellingPricePaise = o.optLong("sellingPrice", 0),
+                unit = o.optString("unit", "")
             )
         }
     }

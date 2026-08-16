@@ -7,7 +7,13 @@ data class ProductImportRow(
     val name: String,
     val sellingPricePaise: Long = 0L,
     val unit: String = "",
-    val barcode: String? = null
+    val barcode: String? = null,
+    val extraOptions: List<ProductExtraOption> = emptyList()
+)
+
+data class ProductExtraOption(
+    val sellingPricePaise: Long,
+    val unit: String
 )
 
 data class CsvImportAnalysis(
@@ -48,8 +54,7 @@ object CsvImportAnalyzer {
         val barcodeIdx = header.indexOf(COL_BARCODE)
 
         val dataRows = rows.drop(1).filter { r -> r.any { it.isNotBlank() } }
-        val valid = mutableListOf<ProductImportRow>()
-        val seen = HashSet<String>()
+        val byId = LinkedHashMap<String, ProductImportRow>()
         val errors = mutableListOf<String>()
         var duplicates = 0
         var invalid = 0
@@ -72,34 +77,46 @@ object CsvImportAnalyzer {
                 pricePaise = parsed
             }
 
-            when {
-                id.isEmpty() -> {
-                    invalid++
-                    if (errors.size < 10) errors.add("Row with empty product id.")
-                }
-                name.isEmpty() -> {
-                    invalid++
-                    if (errors.size < 10) errors.add("Row $id: empty product name.")
-                }
-                id in seen || id in existingIds -> {
+            if (id.isEmpty()) {
+                invalid++
+                if (errors.size < 10) errors.add("Row with empty product id.")
+                continue
+            }
+
+            if (id in existingIds) {
+                duplicates++
+                if (errors.size < 10) errors.add("Row $id: duplicate product id.")
+                continue
+            }
+
+            val existing = byId[id]
+            if (existing != null) {
+                if (priceText.isNotEmpty()) {
+                    byId[id] = existing.copy(
+                        extraOptions = existing.extraOptions + ProductExtraOption(pricePaise, unit)
+                    )
+                } else {
                     duplicates++
                     if (errors.size < 10) errors.add("Row $id: duplicate product id.")
                 }
-                else -> {
-                    valid.add(
-                        ProductImportRow(
-                            id = id,
-                            name = name,
-                            sellingPricePaise = pricePaise,
-                            unit = unit,
-                            barcode = barcode.ifEmpty { null }
-                        )
-                    )
-                    seen.add(id)
-                }
+                continue
             }
+
+            if (name.isEmpty()) {
+                invalid++
+                if (errors.size < 10) errors.add("Row $id: empty product name.")
+                continue
+            }
+
+            byId[id] = ProductImportRow(
+                id = id,
+                name = name,
+                sellingPricePaise = pricePaise,
+                unit = unit,
+                barcode = barcode.ifEmpty { null }
+            )
         }
 
-        return CsvImportAnalysis(dataRows.size, valid, duplicates, invalid, errors)
+        return CsvImportAnalysis(dataRows.size, byId.values.toList(), duplicates, invalid, errors)
     }
 }

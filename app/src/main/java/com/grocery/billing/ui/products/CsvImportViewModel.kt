@@ -6,6 +6,7 @@ import com.grocery.billing.data.csv.CsvImportAnalysis
 import com.grocery.billing.data.csv.CsvImportAnalyzer
 import com.grocery.billing.data.csv.CsvParser
 import com.grocery.billing.data.entity.Product
+import com.grocery.billing.data.entity.ProductPriceOption
 import com.grocery.billing.data.repository.ProductRepository
 import com.grocery.billing.util.Dates
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,19 +46,27 @@ class CsvImportViewModel(
             val loaded = _state.value as? CsvImportState.Loaded ?: return@launch
             try {
                 val now = Dates.isoTimestamp()
-                productRepository.insertAll(
-                    loaded.analysis.valid.map {
-                        Product(
-                            id = it.id,
-                            name = it.name,
-                            sellingPricePaise = it.sellingPricePaise,
-                            unit = it.unit,
-                            barcode = it.barcode,
-                            createdAt = now,
-                            updatedAt = now
+                val products = mutableListOf<Product>()
+                val extras = mutableListOf<ProductPriceOption>()
+                for (row in loaded.analysis.valid) {
+                    products += Product(
+                        id = row.id,
+                        name = row.name,
+                        sellingPricePaise = row.sellingPricePaise,
+                        unit = row.unit,
+                        barcode = row.barcode,
+                        createdAt = now,
+                        updatedAt = now
+                    )
+                    for (opt in row.extraOptions) {
+                        extras += ProductPriceOption(
+                            productId = row.id,
+                            sellingPricePaise = opt.sellingPricePaise,
+                            unit = opt.unit
                         )
                     }
-                )
+                }
+                productRepository.insertAll(products, extras)
                 _state.value = CsvImportState.Imported
             } catch (e: Exception) {
                 _state.value = CsvImportState.Failed("Import failed: ${e.message}")

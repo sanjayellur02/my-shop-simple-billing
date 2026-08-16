@@ -1,11 +1,16 @@
 package com.grocery.billing.data.repository
 
 import com.grocery.billing.data.dao.ProductDao
+import com.grocery.billing.data.dao.ProductPriceDao
 import com.grocery.billing.data.entity.Product
+import com.grocery.billing.data.entity.ProductPriceOption
 import com.grocery.billing.util.Dates
 import kotlinx.coroutines.flow.Flow
 
-class ProductRepository(private val dao: ProductDao) {
+class ProductRepository(
+    private val dao: ProductDao,
+    private val priceDao: ProductPriceDao
+) {
 
     val products: Flow<List<Product>> = dao.observeAll()
 
@@ -20,6 +25,15 @@ class ProductRepository(private val dao: ProductDao) {
     suspend fun getById(id: String): Product? = dao.getById(id)
 
     suspend fun exists(id: String): Boolean = dao.countById(id) > 0
+
+    suspend fun getExtraPrices(productId: String): List<ProductPriceOption> =
+        priceDao.getByProduct(productId)
+
+    /** Replaces all extra price options for a product with the given list. */
+    suspend fun replaceExtraPrices(productId: String, options: List<ProductPriceOption>) {
+        priceDao.deleteByProduct(productId)
+        if (options.isNotEmpty()) priceDao.insertAll(options)
+    }
 
     /** Returns error message or null on success. */
     suspend fun add(
@@ -77,10 +91,14 @@ class ProductRepository(private val dao: ProductDao) {
         return null
     }
 
-    suspend fun delete(product: Product) = dao.delete(product)
+    suspend fun delete(product: Product) {
+        priceDao.deleteByProduct(product.id)
+        dao.delete(product)
+    }
 
-    suspend fun insertAll(products: List<Product>) {
+    suspend fun insertAll(products: List<Product>, extraOptions: List<ProductPriceOption> = emptyList()) {
         if (products.isEmpty()) return
         dao.insertAll(products)
+        if (extraOptions.isNotEmpty()) priceDao.insertAll(extraOptions)
     }
 }

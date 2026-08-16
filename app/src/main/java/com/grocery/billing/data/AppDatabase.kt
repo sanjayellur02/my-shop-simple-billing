@@ -11,22 +11,33 @@ import com.grocery.billing.data.dao.BillItemDao
 import com.grocery.billing.data.dao.HeldBillDao
 import com.grocery.billing.data.dao.HeldBillItemDao
 import com.grocery.billing.data.dao.ProductDao
+import com.grocery.billing.data.dao.ProductPriceDao
 import com.grocery.billing.data.dao.SettingsDao
 import com.grocery.billing.data.entity.Bill
 import com.grocery.billing.data.entity.BillItem
 import com.grocery.billing.data.entity.HeldBill
 import com.grocery.billing.data.entity.HeldBillItem
 import com.grocery.billing.data.entity.Product
+import com.grocery.billing.data.entity.ProductPriceOption
 import com.grocery.billing.data.entity.Setting
 
 @Database(
-    entities = [Product::class, Bill::class, BillItem::class, Setting::class, HeldBill::class, HeldBillItem::class],
-    version = 2,
+    entities = [
+        Product::class,
+        ProductPriceOption::class,
+        Bill::class,
+        BillItem::class,
+        Setting::class,
+        HeldBill::class,
+        HeldBillItem::class
+    ],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun productDao(): ProductDao
+    abstract fun productPriceDao(): ProductPriceDao
     abstract fun billDao(): BillDao
     abstract fun billItemDao(): BillItemDao
     abstract fun settingsDao(): SettingsDao
@@ -75,6 +86,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS product_prices (
+                        option_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        product_id TEXT NOT NULL,
+                        selling_price_paise INTEGER NOT NULL,
+                        unit TEXT NOT NULL DEFAULT '',
+                        FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE
+                    )
+                    """
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_product_prices_product_id ON product_prices(product_id)"
+                )
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -85,7 +115,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "grocery_billing.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build().also { instance = it }
             }
     }

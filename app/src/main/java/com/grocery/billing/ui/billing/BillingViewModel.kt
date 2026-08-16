@@ -33,6 +33,11 @@ data class DraftItem(
     val amountPaise: Long
 )
 
+data class BillingPriceOption(
+    val pricePaise: Long,
+    val unit: String
+)
+
 data class BillingUiState(
     val billNumber: String = "",
     val billDate: String = "",
@@ -50,6 +55,9 @@ data class BillingUiState(
     val quantityText: String = "1",
     val rateText: String = "",
     val showRateEditor: Boolean = false,
+    val priceOptions: List<BillingPriceOption> = emptyList(),
+    val showPricePicker: Boolean = false,
+    val selectedUnit: String = "",
     val allowPriceOverride: Boolean = true,
     val heldCount: Int = 0,
     val scanNonce: Int = 0,
@@ -139,7 +147,10 @@ class BillingViewModel(
                 searchResults = emptyList(),
                 quantityText = "1",
                 rateText = "",
-                showRateEditor = false
+                showRateEditor = false,
+                priceOptions = emptyList(),
+                showPricePicker = false,
+                selectedUnit = ""
             )
         }
         searchJob?.cancel()
@@ -160,19 +171,60 @@ class BillingViewModel(
     }
 
     fun selectProduct(product: Product) {
+        viewModelScope.launch {
+            val extras = productRepository.getExtraPrices(product.id)
+            val options = buildList {
+                if (product.sellingPricePaise > 0L) {
+                    add(BillingPriceOption(product.sellingPricePaise, product.unit))
+                }
+                for (e in extras) {
+                    if (e.sellingPricePaise > 0L) add(BillingPriceOption(e.sellingPricePaise, e.unit))
+                }
+            }
+            val single = options.singleOrNull()
+            _state.update {
+                it.copy(
+                    selectedProduct = product,
+                    searchQuery = product.name,
+                    searchResults = emptyList(),
+                    searching = false,
+                    quantityText = "1",
+                    rateText = single?.let { o -> Money.paiseToNumber(o.pricePaise) } ?: "",
+                    selectedUnit = single?.unit ?: "",
+                    priceOptions = options,
+                    showPricePicker = options.size > 1,
+                    showRateEditor = options.isEmpty(),
+                    error = null
+                )
+            }
+        }
+    }
+
+    fun onPriceOptionSelected(option: BillingPriceOption) {
         _state.update {
             it.copy(
-                selectedProduct = product,
-                searchQuery = product.name,
+                rateText = Money.paiseToNumber(option.pricePaise),
+                selectedUnit = option.unit,
+                showPricePicker = false,
+                showRateEditor = false,
+                error = null
+            )
+        }
+    }
+
+    fun cancelPricePick() {
+        _state.update {
+            it.copy(
+                selectedProduct = null,
+                searchQuery = "",
                 searchResults = emptyList(),
                 searching = false,
                 quantityText = "1",
-                rateText = if (product.sellingPricePaise > 0L) {
-                    Money.paiseToNumber(product.sellingPricePaise)
-                } else {
-                    ""
-                },
-                showRateEditor = product.sellingPricePaise == 0L,
+                rateText = "",
+                showRateEditor = false,
+                priceOptions = emptyList(),
+                showPricePicker = false,
+                selectedUnit = "",
                 error = null
             )
         }
@@ -221,6 +273,9 @@ class BillingViewModel(
                         quantityText = "1",
                         rateText = "",
                         showRateEditor = false,
+                        priceOptions = emptyList(),
+                        showPricePicker = false,
+                        selectedUnit = "",
                         error = null,
                         scanNonce = it.scanNonce + 1
                     )
@@ -273,6 +328,9 @@ class BillingViewModel(
                     quantityText = "1",
                     rateText = "",
                     showRateEditor = false,
+                    priceOptions = emptyList(),
+                    showPricePicker = false,
+                    selectedUnit = "",
                     error = null
                 )
             )
