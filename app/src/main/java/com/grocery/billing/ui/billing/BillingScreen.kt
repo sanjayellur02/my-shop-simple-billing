@@ -98,11 +98,12 @@ fun BillingScreen(
         }
     }
 
-    // After a product is added (selection cleared) focus returns to the search field.
+    // Move focus to the quantity field when a product is selected, and back to
+    // search after it is added (selection cleared). Done in a LaunchedEffect so
+    // the focusRequester is always attached when requested.
     LaunchedEffect(state.selectedProduct) {
-        if (state.selectedProduct == null) {
-            searchFocus.requestFocus()
-        }
+        if (state.selectedProduct != null) qtyFocus.requestFocus()
+        else searchFocus.requestFocus()
     }
 
     BackHandler {
@@ -151,7 +152,7 @@ fun BillingScreen(
                 ),
                 keyboardActions = KeyboardActions(
                     onSearch = {
-                        onSearchSubmit(state, billingViewModel, searchFocus, qtyFocus, keyboard)
+                        onSearchSubmit(state, billingViewModel)
                     }
                 ),
                 modifier = Modifier
@@ -170,28 +171,23 @@ fun BillingScreen(
                     onToggleRateEditor = billingViewModel::toggleRateEditor,
                     onAdd = {
                         val added = billingViewModel.addSelectedToBill()
-                        if (added) {
-                            keyboard?.hide()
-                            searchFocus.requestFocus()
-                        }
+                        if (added) keyboard?.hide()
+                    },
+                    onQtySubmit = {
+                        val added = billingViewModel.addSelectedToBill()
+                        if (added) keyboard?.hide()
                     },
                     qtyFocus = qtyFocus
                 )
 
                 state.searchQuery.isNotBlank() -> SearchResultsList(
                     state = state,
-                    onSelect = {
-                        billingViewModel.selectProduct(it)
-                        qtyFocus.requestFocus()
-                    }
+                    onSelect = billingViewModel::selectProduct
                 )
 
                 else -> RecentProductsSection(
                     recent = state.recentProducts,
-                    onSelect = {
-                        billingViewModel.selectProduct(it)
-                        qtyFocus.requestFocus()
-                    }
+                    onSelect = billingViewModel::selectProduct
                 )
             }
 
@@ -354,26 +350,18 @@ fun BillingScreen(
 
 private fun onSearchSubmit(
     state: BillingUiState,
-    billingViewModel: BillingViewModel,
-    searchFocus: FocusRequester,
-    qtyFocus: FocusRequester,
-    keyboard: androidx.compose.ui.platform.SoftwareKeyboardController?
+    billingViewModel: BillingViewModel
 ) {
     if (state.searchQuery.isNotBlank()) {
         val first = state.searchResults.firstOrNull()
         if (first != null) {
             billingViewModel.selectProduct(first)
-            qtyFocus.requestFocus()
             return
         }
     }
     val recent = state.recentProducts.firstOrNull()
     if (recent != null) {
         billingViewModel.selectProduct(recent)
-        qtyFocus.requestFocus()
-    } else {
-        searchFocus.requestFocus()
-        keyboard?.hide()
     }
 }
 
@@ -385,6 +373,7 @@ private fun SelectedProductCard(
     onAdjustQty: (Long) -> Unit,
     onToggleRateEditor: () -> Unit,
     onAdd: () -> Unit,
+    onQtySubmit: () -> Unit,
     qtyFocus: FocusRequester
 ) {
     val product = state.selectedProduct ?: return
@@ -432,25 +421,37 @@ private fun SelectedProductCard(
                     contentDescription = "Decrease quantity",
                     onClick = { onAdjustQty(-1) }
                 )
-                Text(
-                    state.quantityText,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.width(56.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                OutlinedTextField(
+                    value = state.quantityText,
+                    onValueChange = onQtyChange,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                        .focusRequester(qtyFocus),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { onQtySubmit() }),
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    ),
+                    placeholder = { Text("1") }
                 )
                 StepperButton(
                     icon = Icons.Filled.Add,
                     contentDescription = "Increase quantity",
                     onClick = { onAdjustQty(1) }
                 )
-                Spacer(Modifier.width(12.dp))
-                Button(
-                    onClick = onAdd,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Add Item")
-                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = onAdd,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Add Item")
             }
 
             if (state.quantityText.isEmpty() || state.quantityText.toBigDecimalOrNull() == null) {
