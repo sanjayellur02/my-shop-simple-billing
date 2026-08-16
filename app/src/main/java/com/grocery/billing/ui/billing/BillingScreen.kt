@@ -285,7 +285,13 @@ fun BillingScreen(
                 }
                 Spacer(Modifier.height(8.dp))
                 Button(
-                    onClick = { navController.navigate(Routes.BILL_REVIEW) },
+                    onClick = {
+                        if (state.items.any { it.ratePaise <= 0L }) {
+                            navController.navigate(Routes.pricing("review"))
+                        } else {
+                            navController.navigate(Routes.BILL_REVIEW)
+                        }
+                    },
                     enabled = state.items.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
@@ -329,6 +335,15 @@ fun BillingScreen(
                                         if (option.unit.isNotBlank()) append(" / ${option.unit}")
                                     }
                                 )
+                            }
+                        }
+                        if (state.allowPriceOverride) {
+                            HorizontalDivider()
+                            OutlinedButton(
+                                onClick = billingViewModel::showCustomPriceEditor,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Enter Custom Price", color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }

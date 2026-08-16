@@ -2,7 +2,7 @@ package com.grocery.billing.util
 
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 object Dates {
@@ -10,7 +10,10 @@ object Dates {
     val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
 
-    fun now(): LocalDateTime = LocalDateTime.now()
+    val IST: ZoneId = ZoneId.of("Asia/Kolkata")
+
+    /** Current wall-clock time in Indian Standard Time (IST), regardless of device timezone. */
+    fun now(): LocalDateTime = LocalDateTime.now(IST)
 
     fun todayDateString(now: LocalDateTime = now()): String = now.format(DATE_FORMAT)
 
@@ -18,13 +21,19 @@ object Dates {
 
     fun isoTimestamp(now: LocalDateTime = now()): String = now.toString()
 
-    /** "dd/MM/yyyy" -> "dd MMM yyyy" for history list display (e.g. 16 Aug 2026). */
-    fun shortDate(dayMonthYear: String): String {
+    /** "dd/MM/yyyy" -> LocalDate, or null if unparseable. */
+    fun parseDate(dayMonthYear: String): LocalDate? {
         return try {
             LocalDate.parse(dayMonthYear, DATE_FORMAT)
-                .format(DateTimeFormatter.ofPattern("dd MMM yyyy"))
         } catch (e: Exception) {
-            dayMonthYear
+            null
         }
+    }
+
+    /** "dd/MM/yyyy" -> "dd MMM yyyy" for history list display (e.g. 16 Aug 2026). */
+    fun shortDate(dayMonthYear: String): String {
+        return parseDate(dayMonthYear)
+            ?.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))
+            ?: dayMonthYear
     }
 }

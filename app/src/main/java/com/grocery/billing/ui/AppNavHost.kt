@@ -11,6 +11,7 @@ import com.grocery.billing.ui.billing.BillCompletedScreen
 import com.grocery.billing.ui.billing.BillReviewScreen
 import com.grocery.billing.ui.billing.BillingScreen
 import com.grocery.billing.ui.billing.BillingViewModel
+import com.grocery.billing.ui.billing.PricingScreen
 import com.grocery.billing.ui.history.BillDetailScreen
 import com.grocery.billing.ui.history.BillHistoryScreen
 import com.grocery.billing.ui.home.HomeScreen
@@ -86,6 +87,22 @@ fun AppNavHost(
         }
         composable(Routes.WAITING_CUSTOMERS) {
             WaitingCustomersScreen(navController, factory, billingViewModel)
+        }
+        composable(
+            route = Routes.PRICING,
+            arguments = listOf(
+                navArgument(Routes.PRICING_ARG) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = "billing"
+                }
+            )
+        ) { entry ->
+            PricingScreen(
+                navController = navController,
+                billingViewModel = billingViewModel,
+                next = entry.arguments?.getString(Routes.PRICING_ARG) ?: "billing"
+            )
         }
     }
 }

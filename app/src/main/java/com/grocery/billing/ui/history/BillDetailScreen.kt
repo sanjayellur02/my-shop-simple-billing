@@ -29,6 +29,7 @@ import com.grocery.billing.money.Money
 import com.grocery.billing.print.BillLine
 import com.grocery.billing.print.BillPrinter
 import com.grocery.billing.share.BillTextBuilder
+import com.grocery.billing.share.ShareBillData
 import com.grocery.billing.ui.ViewModelFactory
 import com.grocery.billing.ui.billing.ShareBillDialog
 import com.grocery.billing.ui.components.ErrorText
@@ -165,7 +166,27 @@ fun BillDetailScreen(
             showAddress = shop?.showShopAddress ?: true,
             thankYou = shop?.customerThankYou ?: "Thank you for shopping with us!"
         )
-        ShareBillDialog(text = text, onDismiss = { showShare = false })
+        val shareItems = data!!.items.map {
+            BillLine(it.productNameSnapshot, it.quantity, it.ratePaise, it.amountPaise)
+        }
+        ShareBillDialog(
+            data = ShareBillData(
+                shopName = shop?.shopName ?: "My Shop",
+                address = shop?.address.orEmpty(),
+                phone = shop?.phone.orEmpty(),
+                showAddress = shop?.showShopAddress ?: true,
+                billNumber = data!!.bill.billNumber,
+                date = data!!.bill.billDate,
+                time = data!!.bill.billTime,
+                items = shareItems,
+                subtotalPaise = data!!.bill.subtotalPaise,
+                discountPaise = data!!.bill.discountPaise,
+                totalPaise = data!!.bill.totalPaise,
+                thankYou = shop?.thankYou ?: "Thank you!",
+                text = text
+            ),
+            onDismiss = { showShare = false }
+        )
     }
 }
 

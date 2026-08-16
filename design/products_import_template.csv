@@ -1,0 +1,10 @@
+id,product_name,price,unit,barcode
+101,Rice,70,kg
+101,Rice,140,2kg
+102,Sugar,45,kg
+103,Sunflower Oil,175,ltr,8901234567890
+104,Toor Dal,120,kg
+105,Onion,35,kg
+106,Milk,28,500ml
+107,Detergent,60,500g
+108,Wheat Atta,55,1kg,8901234567891

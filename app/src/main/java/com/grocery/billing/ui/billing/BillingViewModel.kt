@@ -212,6 +212,19 @@ class BillingViewModel(
         }
     }
 
+    /** Closes the preset-price picker and opens the free-price field. */
+    fun showCustomPriceEditor() {
+        _state.update {
+            it.copy(
+                showPricePicker = false,
+                showRateEditor = true,
+                rateText = "",
+                selectedUnit = "",
+                error = null
+            )
+        }
+    }
+
     fun cancelPricePick() {
         _state.update {
             it.copy(
@@ -303,10 +316,7 @@ class BillingViewModel(
                     return false
                 }
             product.sellingPricePaise > 0L -> product.sellingPricePaise
-            else -> {
-                _state.update { it.copy(error = "No price set for this product. Enter the price above first.") }
-                return false
-            }
+            else -> 0L // no price yet - set it later on the pricing screen
         }
 
         val amount = BillCalculator.itemAmountPaise(quantity, ratePaise)

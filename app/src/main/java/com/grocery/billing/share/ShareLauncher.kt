@@ -36,6 +36,32 @@ object ShareLauncher {
         context.startActivity(intent)
     }
 
+    /**
+     * Opens WhatsApp with the bill attached as a PDF. WhatsApp shows its own
+     * contact picker (it does not accept a prefilled number for attachments);
+     * if WhatsApp is not installed the PDF is offered through the share sheet.
+     */
+    fun openWhatsAppPdf(context: Context, pdfUri: Uri, caption: String = "") {
+        val whatsapp = Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            setPackage("com.whatsapp")
+            putExtra(Intent.EXTRA_STREAM, pdfUri)
+            if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        if (whatsapp.resolveActivity(context.packageManager) != null) {
+            context.startActivity(whatsapp)
+            return
+        }
+        val generic = Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_STREAM, pdfUri)
+            if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(generic, "Share Bill (PDF)"))
+    }
+
     fun openShareSheet(context: Context, text: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

@@ -55,9 +55,16 @@ fun WaitingCustomersScreen(
         scope.launch {
             val ok = billingViewModel.resumeHeld(id)
             if (ok) {
+                val needPricing = billingViewModel.state.value.items.any { it.ratePaise <= 0L }
                 val dest = if (toReview) Routes.BILL_REVIEW else Routes.BILLING
-                navController.navigate(dest) {
-                    popUpTo(Routes.BILLING) { inclusive = !toReview }
+                if (needPricing) {
+                    navController.navigate(Routes.pricing(if (toReview) "review" else "billing")) {
+                        popUpTo(Routes.BILLING) { inclusive = false }
+                    }
+                } else {
+                    navController.navigate(dest) {
+                        popUpTo(Routes.BILLING) { inclusive = !toReview }
+                    }
                 }
             }
         }

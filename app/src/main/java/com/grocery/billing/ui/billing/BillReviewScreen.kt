@@ -38,6 +38,7 @@ import com.grocery.billing.money.Money
 import com.grocery.billing.print.BillLine
 import com.grocery.billing.print.BillPrinter
 import com.grocery.billing.share.BillTextBuilder
+import com.grocery.billing.share.ShareBillData
 import com.grocery.billing.ui.Routes
 import com.grocery.billing.ui.components.ErrorText
 import com.grocery.billing.ui.components.LargeButton
@@ -217,7 +218,13 @@ fun BillReviewScreen(
             Spacer(Modifier.height(8.dp))
             LargeButton(
                 text = "FINISH BILL",
-                onClick = { billingViewModel.saveBill() },
+                onClick = {
+                    if (state.items.any { it.ratePaise <= 0L }) {
+                        navController.navigate(Routes.pricing("review"))
+                    } else {
+                        billingViewModel.saveBill()
+                    }
+                },
                 enabled = state.items.isNotEmpty() && !state.saving,
                 height = 64.dp
             )
@@ -226,7 +233,24 @@ fun BillReviewScreen(
     }
 
     if (showShare) {
-        ShareBillDialog(text = billText, onDismiss = { showShare = false })
+        ShareBillDialog(
+            data = ShareBillData(
+                shopName = shop?.shopName ?: "My Shop",
+                address = shop?.address.orEmpty(),
+                phone = shop?.phone.orEmpty(),
+                showAddress = shop?.showShopAddress ?: true,
+                billNumber = state.billNumber,
+                date = state.billDate,
+                time = state.billTime,
+                items = itemsForBill,
+                subtotalPaise = state.subtotalPaise,
+                discountPaise = state.discountPaise,
+                totalPaise = state.totalPaise,
+                thankYou = shop?.thankYou ?: "Thank you!",
+                text = billText
+            ),
+            onDismiss = { showShare = false }
+        )
     }
 }
 

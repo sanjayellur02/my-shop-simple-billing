@@ -1,6 +1,7 @@
 package com.grocery.billing.ui.history
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -33,8 +36,9 @@ import com.grocery.billing.util.Dates
 @Composable
 fun BillHistoryScreen(navController: NavHostController, factory: ViewModelFactory) {
     val viewModel: BillHistoryViewModel = viewModel(factory = factory)
-    val bills by viewModel.bills.collectAsState()
+    val state by viewModel.state.collectAsState()
     val query by viewModel.query.collectAsState()
+    val period by viewModel.period.collectAsState()
 
     ScreenScaffold(title = "Bill History", onBack = { navController.popBackStack() }) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -45,15 +49,30 @@ fun BillHistoryScreen(navController: NavHostController, factory: ViewModelFactor
                 singleLine = true,
                 label = { Text("Search by Bill Number or Date") }
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(8.dp))
 
-            if (bills.isEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HistoryPeriod.values().forEach { p ->
+                    FilterChip(
+                        selected = period == p,
+                        onClick = { viewModel.onPeriodChange(p) },
+                        label = { Text(p.label) }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            HistoryTotalsCard(state)
+            Spacer(Modifier.height(8.dp))
+
+            if (state.bills.isEmpty()) {
                 EmptyState(
-                    if (query.isBlank()) "No bills yet." else "No bills match your search."
+                    if (query.isBlank() && period == HistoryPeriod.ALL) "No bills yet."
+                    else "No bills match this period."
                 )
             } else {
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(bills, key = { it.billId }) { bill ->
+                    items(state.bills, key = { it.billId }) { bill ->
                         BillHistoryRow(
                             bill = bill,
                             onClick = { navController.navigate(Routes.billDetail(bill.billId)) }
@@ -61,6 +80,26 @@ fun BillHistoryScreen(navController: NavHostController, factory: ViewModelFactor
                         HorizontalDivider()
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistoryTotalsCard(state: HistoryUiState) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${state.billCount} bill(s)",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    Money.paiseToDisplay(state.totalSalesPaise),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }

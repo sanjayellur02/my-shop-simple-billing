@@ -28,16 +28,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.grocery.billing.share.BillPdf
+import com.grocery.billing.share.ShareBillData
 import com.grocery.billing.share.ShareLauncher
 import com.grocery.billing.ui.components.ErrorText
 
 /**
  * Share dialog: enter / select a mobile number, then choose WhatsApp, SMS
- * or the Android share sheet. Nothing is sent without the user's action.
+ * or the Android share sheet. WhatsApp sends the bill as a PDF (recipient is
+ * picked inside WhatsApp); SMS sends plain text. Nothing is sent without the
+ * user's action.
  */
 @Composable
 fun ShareBillDialog(
-    text: String,
+    data: ShareBillData,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -54,13 +58,24 @@ fun ShareBillDialog(
         }
     }
 
-    fun share(launch: () -> Unit) {
+    fun shareWithNumber(launch: (String) -> Unit) {
         if (!ShareLauncher.isValidPhoneNumber(number)) {
             error = "Please enter a valid mobile number."
             return
         }
-        launch()
+        launch(number)
         onDismiss()
+    }
+
+    fun shareWhatsAppPdf() {
+        val uri = BillPdf.generateShareUri(context, data)
+        if (uri != null) {
+            ShareLauncher.openWhatsAppPdf(context, uri, caption = "Bill ${data.billNumber}")
+            onDismiss()
+        } else {
+            ShareLauncher.openWhatsApp(context, number, data.text)
+            onDismiss()
+        }
     }
 
     AlertDialog(
@@ -77,7 +92,7 @@ fun ShareBillDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("Mobile Number") },
+                    label = { Text("Mobile Number (for SMS)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                 )
                 OutlinedButton(
@@ -94,15 +109,21 @@ fun ShareBillDialog(
 
                 HorizontalDivider()
 
-                ShareActionButton("WhatsApp") {
-                    share { ShareLauncher.openWhatsApp(context, number, text) }
+                ShareActionButton("WhatsApp (PDF)") {
+                    shareWhatsAppPdf()
                 }
                 ShareActionButton("Send via SMS") {
-                    share { ShareLauncher.openSms(context, number, text) }
+                    shareWithNumber { n -> ShareLauncher.openSms(context, n, data.text) }
                 }
                 ShareActionButton("Other Share Options") {
-                    share { ShareLauncher.openShareSheet(context, text) }
+                    ShareLauncher.openShareSheet(context, data.text)
+                    onDismiss()
                 }
+                Text(
+                    "WhatsApp sends the bill as a PDF; you pick the recipient inside WhatsApp.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         },
         confirmButton = {},
