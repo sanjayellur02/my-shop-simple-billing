@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#1B5E20</color>
+    <string name="app_name">My Shop</string>
+    <style name="Theme.GroceryBilling" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#1B5E20</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

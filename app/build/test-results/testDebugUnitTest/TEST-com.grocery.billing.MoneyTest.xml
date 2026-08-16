@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.grocery.billing.MoneyTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-08-16T19:23:13" hostname="sanjayellur" time="0.026">
+  <properties/>
+  <testcase name="indianGrouping" classname="com.grocery.billing.MoneyTest" time="0.021"/>
+  <testcase name="formatsPaise" classname="com.grocery.billing.MoneyTest" time="0.001"/>
+  <testcase name="rejectsInvalidInput" classname="com.grocery.billing.MoneyTest" time="0.0"/>
+  <testcase name="formatQuantityStripsZeros" classname="com.grocery.billing.MoneyTest" time="0.001"/>
+  <testcase name="roundsHalfUp" classname="com.grocery.billing.MoneyTest" time="0.0"/>
+  <testcase name="formatsWithoutSymbol" classname="com.grocery.billing.MoneyTest" time="0.001"/>
+  <testcase name="parsesRupeesToPaise" classname="com.grocery.billing.MoneyTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

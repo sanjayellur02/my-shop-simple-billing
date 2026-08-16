@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+**/build/
+.kotlin/
+
+# Local configuration
+local.properties
+*.keystore
+*.jks
+
+# IDE
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Logs / crash dumps
+*.log
+hs_err_pid*.log
+replay_pid*.log
+
+# OS
+.DS_Store

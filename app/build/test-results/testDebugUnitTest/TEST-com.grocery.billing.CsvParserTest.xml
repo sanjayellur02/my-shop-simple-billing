@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.grocery.billing.CsvParserTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-08-16T19:23:12" hostname="sanjayellur" time="0.004">
+  <properties/>
+  <testcase name="parsesSimpleRows" classname="com.grocery.billing.CsvParserTest" time="0.001"/>
+  <testcase name="parsesEscapedQuotes" classname="com.grocery.billing.CsvParserTest" time="0.0"/>
+  <testcase name="parsesCommaInsideQuotes" classname="com.grocery.billing.CsvParserTest" time="0.0"/>
+  <testcase name="handlesTrailingNewline" classname="com.grocery.billing.CsvParserTest" time="0.001"/>
+  <testcase name="emptyFileGivesEmptyRows" classname="com.grocery.billing.CsvParserTest" time="0.0"/>
+  <testcase name="parsesQuotedFields" classname="com.grocery.billing.CsvParserTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
