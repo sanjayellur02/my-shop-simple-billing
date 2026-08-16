@@ -1,11 +1,13 @@
 package com.grocery.billing.ui.components
 
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 
@@ -19,7 +21,8 @@ fun NumberField(
     label: String,
     modifier: Modifier = Modifier,
     isError: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Decimal
+    keyboardType: KeyboardType = KeyboardType.Decimal,
+    onDone: (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -27,7 +30,11 @@ fun NumberField(
         label = { Text(label) },
         singleLine = true,
         modifier = modifier,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default
+        ),
+        keyboardActions = onDone?.let { done -> KeyboardActions(onDone = { done() }) },
         isError = isError,
         textStyle = androidx.compose.ui.text.TextStyle(
             fontSize = 24.sp,

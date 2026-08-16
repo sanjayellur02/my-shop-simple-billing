@@ -1,6 +1,7 @@
 package com.grocery.billing.ui.billing
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -67,6 +69,8 @@ import com.grocery.billing.ui.components.ConfirmDialog
 import com.grocery.billing.ui.components.ErrorText
 import com.grocery.billing.ui.components.NumberField
 import com.grocery.billing.ui.components.ScreenScaffold
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 @Composable
 fun BillingScreen(
@@ -77,6 +81,11 @@ fun BillingScreen(
     val state by billingViewModel.state.collectAsState()
     val searchFocus = remember { FocusRequester() }
     val qtyFocus = remember { FocusRequester() }
+    val rateFocus = remember { FocusRequester() }
+
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let { billingViewModel.onBarcodeScanned(it) }
+    }
 
     var removingItem by remember { mutableStateOf<DraftItem?>(null) }
     var showDiscardDialog by remember { mutableStateOf(false) }
@@ -84,6 +93,8 @@ fun BillingScreen(
     var showNewBillDialog by remember { mutableStateOf(false) }
 
     val keyboard = LocalSoftwareKeyboardController.current
+
+    val pickerActive = state.selectedProduct != null || state.searchQuery.isNotBlank()
 
     LaunchedEffect(Unit) {
         billingViewModel.ensureStarted()
@@ -98,12 +109,18 @@ fun BillingScreen(
         }
     }
 
-    // Move focus to the quantity field when a product is selected, and back to
-    // search after it is added (selection cleared). Done in a LaunchedEffect so
-    // the focusRequester is always attached when requested.
-    LaunchedEffect(state.selectedProduct) {
-        if (state.selectedProduct != null) qtyFocus.requestFocus()
-        else searchFocus.requestFocus()
+    // Move focus to the price field (when a price is needed) or the quantity
+    // field when a product is selected, and back to search when the selection
+    // is cleared. Done in a LaunchedEffect so the focusRequester is always
+    // attached when requested.
+    LaunchedEffect(state.selectedProduct, state.showRateEditor, state.scanNonce) {
+        val product = state.selectedProduct
+        if (product != null) {
+            if (state.showRateEditor) rateFocus.requestFocus()
+            else qtyFocus.requestFocus()
+        } else {
+            searchFocus.requestFocus()
+        }
     }
 
     BackHandler {
@@ -139,9 +156,23 @@ fun BillingScreen(
                     Icon(Icons.Filled.Search, contentDescription = null)
                 },
                 trailingIcon = {
-                    if (state.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = billingViewModel::clearSearch) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    Row {
+                        if (state.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = billingViewModel::clearSearch) {
+                                Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                            }
+                        }
+                        IconButton(onClick = {
+                            scanLauncher.launch(
+                                ScanOptions().apply {
+                                    setDesiredBarcodeFormats(ScanOptions.ONE_D_CODE_TYPES)
+                                    setPrompt("Scan product barcode")
+                                    setBeepEnabled(true)
+                                    setOrientationLocked(true)
+                                }
+                            )
+                        }) {
+                            Icon(Icons.Filled.PhotoCamera, contentDescription = "Scan barcode")
                         }
                     }
                 },
@@ -177,7 +208,9 @@ fun BillingScreen(
                         val added = billingViewModel.addSelectedToBill()
                         if (added) keyboard?.hide()
                     },
-                    qtyFocus = qtyFocus
+                    onRateDone = { billingViewModel.closeRateEditor() },
+                    qtyFocus = qtyFocus,
+                    rateFocus = rateFocus
                 )
 
                 state.searchQuery.isNotBlank() -> SearchResultsList(
@@ -219,46 +252,41 @@ fun BillingScreen(
                 }
             }
 
-            TotalsAndDiscountCard(state = state, onDiscountChange = billingViewModel::setDiscountText)
+            if (!pickerActive) {
+                TotalsAndDiscountCard(state = state, onDiscountChange = billingViewModel::setDiscountText)
+            }
 
             state.saveError?.let { ErrorText(it) }
             state.error?.let { ErrorText(it) }
 
-            Spacer(Modifier.height(8.dp))
+            if (!pickerActive) {
+                Spacer(Modifier.height(8.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { showHoldDialog = true },
-                    enabled = state.items.isNotEmpty(),
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Hold Bill")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { showHoldDialog = true },
+                        enabled = state.items.isNotEmpty(),
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Hold Bill")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            if (state.items.isNotEmpty()) showNewBillDialog = true
+                            else billingViewModel.startNewBill()
+                        },
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("New Bill")
+                    }
                 }
-                OutlinedButton(
-                    onClick = { navController.navigate(Routes.WAITING_CUSTOMERS) },
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Waiting (${state.heldCount})")
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        if (state.items.isNotEmpty()) showNewBillDialog = true
-                        else billingViewModel.startNewBill()
-                    },
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("New Bill")
-                }
+                Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = { navController.navigate(Routes.BILL_REVIEW) },
                     enabled = state.items.isNotEmpty(),
-                    modifier = Modifier.weight(1f).height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
@@ -374,7 +402,9 @@ private fun SelectedProductCard(
     onToggleRateEditor: () -> Unit,
     onAdd: () -> Unit,
     onQtySubmit: () -> Unit,
-    qtyFocus: FocusRequester
+    onRateDone: () -> Unit,
+    qtyFocus: FocusRequester,
+    rateFocus: FocusRequester
 ) {
     val product = state.selectedProduct ?: return
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -409,7 +439,8 @@ private fun SelectedProductCard(
                     value = state.rateText,
                     onValueChange = onRateChange,
                     label = "Price ₹",
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusRequester(rateFocus),
+                    onDone = onRateDone
                 )
             }
 

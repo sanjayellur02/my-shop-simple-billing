@@ -80,6 +80,7 @@ dependencies {
 
     implementation(libs.androidx.print)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.zxing.android.embedded)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

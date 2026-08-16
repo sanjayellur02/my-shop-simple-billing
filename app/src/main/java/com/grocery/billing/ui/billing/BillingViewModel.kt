@@ -52,6 +52,7 @@ data class BillingUiState(
     val showRateEditor: Boolean = false,
     val allowPriceOverride: Boolean = true,
     val heldCount: Int = 0,
+    val scanNonce: Int = 0,
     val saving: Boolean = false,
     val savedBillId: Long? = null,
     val saveError: String? = null,
@@ -166,8 +167,12 @@ class BillingViewModel(
                 searchResults = emptyList(),
                 searching = false,
                 quantityText = "1",
-                rateText = Money.paiseToNumber(product.sellingPricePaise),
-                showRateEditor = false,
+                rateText = if (product.sellingPricePaise > 0L) {
+                    Money.paiseToNumber(product.sellingPricePaise)
+                } else {
+                    ""
+                },
+                showRateEditor = product.sellingPricePaise == 0L,
                 error = null
             )
         }
@@ -195,6 +200,35 @@ class BillingViewModel(
         _state.update { it.copy(showRateEditor = !it.showRateEditor, error = null) }
     }
 
+    fun closeRateEditor() {
+        _state.update { it.copy(showRateEditor = false, error = null) }
+    }
+
+    fun onBarcodeScanned(barcode: String) {
+        val q = barcode.trim()
+        if (q.isEmpty()) return
+        viewModelScope.launch {
+            val product = productRepository.findExact(q)
+            if (product != null) {
+                selectProduct(product)
+            } else {
+                _state.update {
+                    it.copy(
+                        searchQuery = q,
+                        selectedProduct = null,
+                        searchResults = emptyList(),
+                        searching = false,
+                        quantityText = "1",
+                        rateText = "",
+                        showRateEditor = false,
+                        error = null,
+                        scanNonce = it.scanNonce + 1
+                    )
+                }
+            }
+        }
+    }
+
     fun addSelectedToBill(): Boolean {
         val s = _state.value
         val product = s.selectedProduct ?: return false
@@ -215,7 +249,7 @@ class BillingViewModel(
                 }
             product.sellingPricePaise > 0L -> product.sellingPricePaise
             else -> {
-                _state.update { it.copy(error = "No price set for this product. Use the price edit button.") }
+                _state.update { it.copy(error = "No price set for this product. Enter the price above first.") }
                 return false
             }
         }

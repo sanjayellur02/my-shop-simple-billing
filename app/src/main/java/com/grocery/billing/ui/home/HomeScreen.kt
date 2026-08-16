@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -81,6 +82,12 @@ fun HomeScreen(navController: NavHostController, factory: ViewModelFactory) {
         )
 
         Spacer(Modifier.height(4.dp))
+
+        MenuButton(
+            icon = Icons.Filled.People,
+            text = "Waiting Customers (${state.heldCount})",
+            onClick = { navController.navigate(Routes.WAITING_CUSTOMERS) }
+        )
 
         MenuButton(
             icon = Icons.Filled.Inventory2,

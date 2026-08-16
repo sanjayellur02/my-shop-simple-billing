@@ -21,7 +21,11 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
         val handle = extras.createSavedStateHandle()
         val result: ViewModel = when {
             modelClass.isAssignableFrom(HomeViewModel::class.java) ->
-                HomeViewModel(container.billRepository, container.settingsRepository)
+                HomeViewModel(
+                    container.billRepository,
+                    container.settingsRepository,
+                    container.heldBillRepository
+                )
             modelClass.isAssignableFrom(ProductListViewModel::class.java) ->
                 ProductListViewModel(container.productRepository)
             modelClass.isAssignableFrom(ProductEditViewModel::class.java) ->
