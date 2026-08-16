@@ -34,7 +34,7 @@ fun NumberField(
             keyboardType = keyboardType,
             imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default
         ),
-        keyboardActions = onDone?.let { done -> KeyboardActions(onDone = { done() }) },
+        keyboardActions = if (onDone != null) KeyboardActions(onDone = { onDone() }) else KeyboardActions(),
         isError = isError,
         textStyle = androidx.compose.ui.text.TextStyle(
             fontSize = 24.sp,

@@ -94,7 +94,7 @@ abstract class AppDatabase : RoomDatabase() {
                         option_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                         product_id TEXT NOT NULL,
                         selling_price_paise INTEGER NOT NULL,
-                        unit TEXT NOT NULL DEFAULT '',
+                        unit TEXT NOT NULL,
                         FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE
                     )
                     """

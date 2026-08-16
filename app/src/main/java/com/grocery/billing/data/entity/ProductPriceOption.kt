@@ -3,6 +3,7 @@ package com.grocery.billing.data.entity
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -13,6 +14,7 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "product_prices",
+    indices = [Index(value = ["product_id"])],
     foreignKeys = [
         ForeignKey(
             entity = Product::class,

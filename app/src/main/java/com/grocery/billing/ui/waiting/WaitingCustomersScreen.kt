@@ -154,7 +154,7 @@ private fun HeldBillRow(
         Spacer(Modifier.height(8.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton("Resume", onResume, Modifier.weight(1f), filled = true)
+            ActionButton("Billing", onResume, Modifier.weight(1f), filled = true)
             ActionButton("Complete", onComplete, Modifier.weight(1f), filled = false)
         }
         Spacer(Modifier.height(6.dp))
