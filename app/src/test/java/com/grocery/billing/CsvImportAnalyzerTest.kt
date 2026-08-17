@@ -155,4 +155,55 @@ class CsvImportAnalyzerTest {
         assertEquals(1, result.valid[0].extraOptions.size)
         assertEquals("1/2kg", result.valid[0].extraOptions[0].unit)
     }
+
+    @Test
+    fun newCsvFormatWithSkuAndRate() {
+        val result = analyze("ID,Product Name,Rate,SKU,Barcode\n1,Akki,,,\n2,Colgate 200g,110,,89012345")
+        assertEquals(2, result.valid.size)
+        assertEquals("1", result.valid[0].id)
+        assertEquals("Akki", result.valid[0].name)
+        assertNull(result.valid[0].sku)
+        assertNull(result.valid[0].barcode)
+        assertEquals("2", result.valid[1].id)
+        assertEquals("Colgate 200g", result.valid[1].name)
+        assertEquals(11000L, result.valid[1].sellingPricePaise)
+        assertNull(result.valid[1].sku)
+        assertEquals("89012345", result.valid[1].barcode)
+    }
+
+    @Test
+    fun newCsvFormatWithSkuProvided() {
+        val result = analyze("ID,Product Name,Rate,SKU,Barcode\n1,Colgate 200g,110,COL-200G,")
+        assertEquals(1, result.valid.size)
+        assertEquals("COL-200G", result.valid[0].sku)
+        assertNull(result.valid[0].barcode)
+    }
+
+    @Test
+    fun newCsvFormatHeaderCaseInsensitive() {
+        val result = analyze("id,product name,rate,sku,barcode\n1,Akki,,,")
+        assertEquals(1, result.valid.size)
+        assertEquals("Akki", result.valid[0].name)
+    }
+
+    @Test
+    fun oldFormatStillWorks() {
+        val result = analyze("id,product_name,price,unit,barcode\n101,Rice,70,kg,8901")
+        assertEquals(1, result.valid.size)
+        assertEquals("101", result.valid[0].id)
+        assertEquals(7000L, result.valid[0].sellingPricePaise)
+        assertEquals("kg", result.valid[0].unit)
+        assertEquals("8901", result.valid[0].barcode)
+    }
+
+    @Test
+    fun repeatedIdWithNewFormatAddsExtraOption() {
+        val result = analyze("ID,Product Name,Rate,SKU,Barcode\n101,Rice,70,,\n101,Rice,140,,")
+        assertEquals(2, result.totalRows)
+        assertEquals(1, result.valid.size)
+        assertEquals(0, result.duplicateCount)
+        assertEquals(7000L, result.valid[0].sellingPricePaise)
+        assertEquals(1, result.valid[0].extraOptions.size)
+        assertEquals(14000L, result.valid[0].extraOptions[0].sellingPricePaise)
+    }
 }

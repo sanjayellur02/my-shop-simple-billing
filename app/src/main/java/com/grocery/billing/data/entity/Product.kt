@@ -8,6 +8,9 @@ import androidx.room.PrimaryKey
  * Product master. The selling price / unit / barcode are optional and are
  * used to pre-fill the rate during billing; the cashier can override it if
  * the shop has allowed price overrides.
+ *
+ * [sku] is auto-generated from the product name (human-readable identifier).
+ * [barcode] is an auto-generated 8-digit numeric value for scanning.
  */
 @Entity(tableName = "products")
 data class Product(
@@ -22,6 +25,8 @@ data class Product(
     val unit: String = "",
     @ColumnInfo(name = "barcode")
     val barcode: String? = null,
+    @ColumnInfo(name = "sku")
+    val sku: String? = null,
     @ColumnInfo(name = "created_at")
     val createdAt: String,
     @ColumnInfo(name = "updated_at")

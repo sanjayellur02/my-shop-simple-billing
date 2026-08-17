@@ -99,6 +99,23 @@ fun ProductEditScreen(navController: NavHostController, factory: ViewModelFactor
                 textStyle = MaterialTheme.typography.titleLarge
             )
 
+            if (state.sku.isNotBlank()) {
+                OutlinedTextField(
+                    value = state.sku,
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    readOnly = true,
+                    singleLine = true,
+                    label = { Text("SKU (auto-generated)") },
+                    textStyle = MaterialTheme.typography.titleLarge,
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+
             OutlinedTextField(
                 value = state.priceText,
                 onValueChange = viewModel::onPriceChange,

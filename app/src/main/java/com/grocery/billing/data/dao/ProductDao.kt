@@ -24,11 +24,20 @@ interface ProductDao {
     @Query("SELECT COUNT(*) FROM products WHERE product_id = :id")
     suspend fun countById(id: String): Int
 
-    @Query("SELECT * FROM products WHERE product_id LIKE '%' || :q || '%' OR product_name LIKE '%' || :q || '%' ORDER BY product_id ASC LIMIT 50")
+    @Query("SELECT * FROM products WHERE product_id LIKE '%' || :q || '%' OR product_name LIKE '%' || :q || '%' OR sku LIKE '%' || :q || '%' ORDER BY product_id ASC LIMIT 50")
     suspend fun search(q: String): List<Product>
 
-    @Query("SELECT * FROM products WHERE product_id = :q OR product_name = :q OR barcode = :q LIMIT 1")
+    @Query("SELECT * FROM products WHERE product_id = :q OR product_name = :q OR barcode = :q OR sku = :q LIMIT 1")
     suspend fun findExact(q: String): Product?
+
+    @Query("SELECT COUNT(*) FROM products WHERE sku = :sku")
+    suspend fun countBySku(sku: String): Int
+
+    @Query("SELECT sku FROM products WHERE sku IS NOT NULL")
+    suspend fun getAllSkus(): List<String>
+
+    @Query("SELECT barcode FROM products WHERE barcode IS NOT NULL")
+    suspend fun getAllBarcodes(): List<String>
 
     /** Products that appear in completed bills, most recently used first. */
     @Query(

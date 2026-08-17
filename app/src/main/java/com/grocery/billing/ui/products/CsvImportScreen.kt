@@ -100,17 +100,18 @@ private fun IdleContent(onPickFile: () -> Unit, onCancel: () -> Unit) {
         )
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("id,product_name,price,unit,barcode", style = MaterialTheme.typography.titleMedium)
+                Text("ID,Product Name,Rate,SKU,Barcode", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
-                Text("101,Rice,70,kg", style = MaterialTheme.typography.bodyMedium)
-                Text("101,Rice,140,2kg", style = MaterialTheme.typography.bodyMedium)
-                Text("102,Sugar,45,kg", style = MaterialTheme.typography.bodyMedium)
-                Text("103,Sunflower Oil,175,ltr,8901234567890", style = MaterialTheme.typography.bodyMedium)
+                Text("1,Akki,,,", style = MaterialTheme.typography.bodyMedium)
+                Text("2,Colgate 200g,110,,", style = MaterialTheme.typography.bodyMedium)
+                Text("3,Parle-G 5rs,5,,", style = MaterialTheme.typography.bodyMedium)
+                Text("4,Maggi 12rs,12,,89012345", style = MaterialTheme.typography.bodyMedium)
             }
         }
         Text(
-            "Only id and product_name are required. price, unit and barcode are optional. " +
-                "Repeat a product id on more rows to add extra selling prices (the first row is the default price).",
+            "Only ID and Product Name are required. Rate, SKU and Barcode are optional. " +
+                "SKU and Barcode are auto-generated when empty. " +
+                "Repeat a product ID on more rows to add extra selling prices (the first row is the default price).",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

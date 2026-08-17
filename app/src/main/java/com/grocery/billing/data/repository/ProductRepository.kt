@@ -6,7 +6,9 @@ import com.grocery.billing.data.dao.ProductDao
 import com.grocery.billing.data.dao.ProductPriceDao
 import com.grocery.billing.data.entity.Product
 import com.grocery.billing.data.entity.ProductPriceOption
+import com.grocery.billing.util.BarcodeNumberGenerator
 import com.grocery.billing.util.Dates
+import com.grocery.billing.util.SkuGenerator
 import kotlinx.coroutines.flow.Flow
 
 class ProductRepository(
@@ -40,19 +42,51 @@ class ProductRepository(
         }
     }
 
+    suspend fun generateUniqueSku(productName: String, existingSkus: Set<String>): String {
+        val base = SkuGenerator.generate(productName)
+        if (base.isEmpty()) return ""
+        if (base !in existingSkus && dao.countBySku(base) == 0) return base
+        var counter = 2
+        while (true) {
+            val candidate = "$base-$counter"
+            if (candidate !in existingSkus && dao.countBySku(candidate) == 0) return candidate
+            counter++
+        }
+    }
+
+    suspend fun generateUniqueBarcode(existingBarcodes: Set<String>): String {
+        return BarcodeNumberGenerator.generate(existingBarcodes)
+    }
+
     /** Returns error message or null on success. */
     suspend fun add(
         id: String,
         name: String,
         sellingPricePaise: Long = 0L,
         unit: String = "",
-        barcode: String? = null
+        barcode: String? = null,
+        sku: String? = null
     ): String? {
         val trimmedId = id.trim()
         val trimmedName = name.trim()
         if (trimmedId.isEmpty()) return "Product ID is required."
         if (trimmedName.isEmpty()) return "Product name is required."
         if (dao.countById(trimmedId) > 0) return "Product ID already exists."
+
+        val finalSku = if (sku.isNullOrBlank()) {
+            val existingSkus = dao.getAllSkus().toSet()
+            generateUniqueSku(trimmedName, existingSkus)
+        } else {
+            sku.trim()
+        }
+
+        val finalBarcode = if (barcode.isNullOrBlank()) {
+            val existingBarcodes = dao.getAllBarcodes().toSet()
+            generateUniqueBarcode(existingBarcodes)
+        } else {
+            barcode.trim().ifEmpty { null }
+        }
+
         val now = Dates.isoTimestamp()
         dao.insert(
             Product(
@@ -60,7 +94,8 @@ class ProductRepository(
                 name = trimmedName,
                 sellingPricePaise = sellingPricePaise,
                 unit = unit.trim(),
-                barcode = barcode?.trim()?.ifEmpty { null },
+                barcode = finalBarcode,
+                sku = finalSku.ifEmpty { null },
                 createdAt = now,
                 updatedAt = now
             )
@@ -75,7 +110,8 @@ class ProductRepository(
         name: String,
         sellingPricePaise: Long = 0L,
         unit: String = "",
-        barcode: String? = null
+        barcode: String? = null,
+        sku: String? = null
     ): String? {
         val trimmedId = newId.trim()
         val trimmedName = name.trim()
@@ -89,7 +125,8 @@ class ProductRepository(
                 name = trimmedName,
                 sellingPricePaise = sellingPricePaise,
                 unit = unit.trim(),
-                barcode = barcode?.trim()?.ifEmpty { null },
+                barcode = barcode?.trim()?.ifEmpty { null } ?: existing.barcode,
+                sku = sku?.trim()?.ifEmpty { null } ?: existing.sku,
                 updatedAt = Dates.isoTimestamp()
             )
         )

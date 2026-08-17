@@ -50,6 +50,7 @@ class BackupManager(private val context: Context) {
                     .put("sellingPrice", p.sellingPricePaise)
                     .put("unit", p.unit)
                     .put("barcode", p.barcode ?: JSONObject.NULL)
+                    .put("sku", p.sku ?: JSONObject.NULL)
                     .put("createdAt", p.createdAt)
                     .put("updatedAt", p.updatedAt))
             }
@@ -188,6 +189,7 @@ class BackupManager(private val context: Context) {
                 sellingPricePaise = o.optLong("sellingPrice", 0),
                 unit = o.optString("unit", ""),
                 barcode = if (o.isNull("barcode")) null else o.optString("barcode", ""),
+                sku = if (o.isNull("sku")) null else o.optString("sku", ""),
                 createdAt = o.optString("createdAt", ""),
                 updatedAt = o.optString("updatedAt", "")
             )

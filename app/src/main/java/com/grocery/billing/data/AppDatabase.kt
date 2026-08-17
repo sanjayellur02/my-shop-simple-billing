@@ -22,6 +22,8 @@ import com.grocery.billing.data.entity.HeldBillItem
 import com.grocery.billing.data.entity.Product
 import com.grocery.billing.data.entity.ProductPriceOption
 import com.grocery.billing.data.entity.Setting
+import com.grocery.billing.util.BarcodeNumberGenerator
+import com.grocery.billing.util.SkuGenerator
 
 @Database(
     entities = [
@@ -34,7 +36,7 @@ import com.grocery.billing.data.entity.Setting
         HeldBillItem::class,
         Draft::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -148,6 +150,44 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN sku TEXT")
+
+                val cursor = db.query("SELECT product_id, product_name, barcode FROM products")
+                data class OldProduct(val id: String, val name: String, val barcode: String?)
+                val existing = mutableListOf<OldProduct>()
+                val existingBarcodes = mutableSetOf<String>()
+                while (cursor.moveToNext()) {
+                    val id = cursor.getString(cursor.getColumnIndexOrThrow("product_id"))
+                    val name = cursor.getString(cursor.getColumnIndexOrThrow("product_name"))
+                    val barcode = cursor.getString(cursor.getColumnIndexOrThrow("barcode"))
+                    existing += OldProduct(id, name, barcode)
+                    if (!barcode.isNullOrBlank()) existingBarcodes += barcode
+                }
+                cursor.close()
+
+                val generatedBarcodes = BarcodeNumberGenerator.generateBatch(
+                    existing.count { it.barcode.isNullOrBlank() },
+                    existingBarcodes
+                )
+                var barcodeIdx = 0
+
+                for (p in existing) {
+                    val sku = SkuGenerator.generate(p.name)
+                    db.execSQL("UPDATE products SET sku = ? WHERE product_id = ?", arrayOf(sku, p.id))
+
+                    if (p.barcode.isNullOrBlank() && barcodeIdx < generatedBarcodes.size) {
+                        db.execSQL(
+                            "UPDATE products SET barcode = ? WHERE product_id = ?",
+                            arrayOf(generatedBarcodes[barcodeIdx], p.id)
+                        )
+                        barcodeIdx++
+                    }
+                }
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -158,7 +198,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "grocery_billing.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build().also { instance = it }
             }
     }

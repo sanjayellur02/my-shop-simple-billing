@@ -8,6 +8,7 @@ data class ProductImportRow(
     val sellingPricePaise: Long = 0L,
     val unit: String = "",
     val barcode: String? = null,
+    val sku: String? = null,
     val extraOptions: List<ProductExtraOption> = emptyList()
 )
 
@@ -31,9 +32,12 @@ object CsvImportAnalyzer {
 
     const val COL_ID = "id"
     const val COL_NAME = "product_name"
+    const val COL_NAME_DISPLAY = "product name"
     const val COL_PRICE = "price"
+    const val COL_RATE = "rate"
     const val COL_UNIT = "unit"
     const val COL_BARCODE = "barcode"
+    const val COL_SKU = "sku"
 
     fun analyze(rows: List<List<String>>, existingIds: Set<String>): CsvImportAnalysis {
         if (rows.isEmpty()) {
@@ -41,17 +45,18 @@ object CsvImportAnalyzer {
         }
 
         val header = rows[0].map { it.trim().lowercase() }
-        val idIdx = header.indexOf(COL_ID)
-        val nameIdx = header.indexOf(COL_NAME)
+        val idIdx = header.indexOfFirst { it == COL_ID }
+        val nameIdx = header.indexOfFirst { it == COL_NAME || it == COL_NAME_DISPLAY }
         if (idIdx < 0 || nameIdx < 0) {
             return CsvImportAnalysis(
                 0, emptyList(), 0, 0, emptyList(),
-                "Columns must include \"id\" and \"product_name\"."
+                "Columns must include \"id\" and \"product_name\" (or \"Product Name\")."
             )
         }
-        val priceIdx = header.indexOf(COL_PRICE)
+        val priceIdx = header.indexOfFirst { it == COL_PRICE || it == COL_RATE }
         val unitIdx = header.indexOf(COL_UNIT)
         val barcodeIdx = header.indexOf(COL_BARCODE)
+        val skuIdx = header.indexOf(COL_SKU)
 
         val dataRows = rows.drop(1).filter { r -> r.any { it.isNotBlank() } }
         val byId = LinkedHashMap<String, ProductImportRow>()
@@ -65,6 +70,7 @@ object CsvImportAnalyzer {
             val priceText = priceIdx?.let { r.getOrNull(it)?.trim() ?: "" } ?: ""
             val unit = unitIdx?.let { r.getOrNull(it)?.trim() ?: "" } ?: ""
             val barcode = barcodeIdx?.let { r.getOrNull(it)?.trim() } ?: ""
+            val sku = skuIdx?.let { r.getOrNull(it)?.trim() } ?: ""
 
             var pricePaise = 0L
             if (priceText.isNotEmpty()) {
@@ -118,7 +124,8 @@ object CsvImportAnalyzer {
                 name = name,
                 sellingPricePaise = pricePaise,
                 unit = unit,
-                barcode = barcode.ifEmpty { null }
+                barcode = barcode.ifEmpty { null },
+                sku = sku.ifEmpty { null }
             )
         }
 

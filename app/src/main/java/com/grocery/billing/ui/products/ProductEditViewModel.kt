@@ -7,6 +7,7 @@ import com.grocery.billing.data.entity.ProductPriceOption
 import com.grocery.billing.data.repository.DraftRepository
 import com.grocery.billing.data.repository.ProductRepository
 import com.grocery.billing.money.Money
+import com.grocery.billing.util.SkuGenerator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ data class ProductEditUiState(
     val priceText: String = "",
     val unit: String = "",
     val barcode: String = "",
+    val sku: String = "",
     val extraPrices: List<ExtraPriceDraft> = emptyList(),
     val error: String? = null,
     val isEditing: Boolean = false,
@@ -77,6 +79,7 @@ class ProductEditViewModel(
                     priceText = Money.paiseToNumber(existing.sellingPricePaise),
                     unit = existing.unit,
                     barcode = existing.barcode ?: "",
+                    sku = existing.sku ?: "",
                     extraPrices = productRepository.getExtraPrices(existing.id).map {
                         ExtraPriceDraft(
                             key = ++extraKey,
@@ -98,7 +101,10 @@ class ProductEditViewModel(
     }
 
     fun onNameChange(value: String) {
-        _state.update { it.copy(name = value, error = null) }
+        _state.update {
+            val newSku = SkuGenerator.generate(value)
+            it.copy(name = value, sku = newSku, error = null)
+        }
         scheduleAutoSave()
     }
 
@@ -185,7 +191,8 @@ class ProductEditViewModel(
                     name = s.name,
                     sellingPricePaise = pricePaise,
                     unit = s.unit,
-                    barcode = s.barcode
+                    barcode = s.barcode.ifEmpty { null },
+                    sku = s.sku.ifEmpty { null }
                 )
             } else {
                 productRepository.add(
@@ -193,7 +200,8 @@ class ProductEditViewModel(
                     name = s.name,
                     sellingPricePaise = pricePaise,
                     unit = s.unit,
-                    barcode = s.barcode
+                    barcode = s.barcode.ifEmpty { null },
+                    sku = s.sku.ifEmpty { null }
                 )
             }
             if (error == null) {
@@ -237,6 +245,7 @@ class ProductEditViewModel(
         sb.appendLine(s.priceText)
         sb.appendLine(s.unit)
         sb.appendLine(s.barcode)
+        sb.appendLine(s.sku)
         sb.appendLine(s.extraPrices.size)
         for (ep in s.extraPrices) {
             sb.appendLine(ep.priceText)
@@ -257,6 +266,7 @@ class ProductEditViewModel(
             val priceText = next()
             val unit = next()
             val barcode = next()
+            val sku = next()
             val extraCount = next().toIntOrNull() ?: 0
             val extras = mutableListOf<ExtraPriceDraft>()
             for (i in 0 until extraCount) {
@@ -269,6 +279,7 @@ class ProductEditViewModel(
                 priceText = priceText,
                 unit = unit,
                 barcode = barcode,
+                sku = sku,
                 extraPrices = extras,
                 isEditing = originalId != null
             )

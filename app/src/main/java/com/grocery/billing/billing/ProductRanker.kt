@@ -24,10 +24,11 @@ object ProductRanker {
         val id = product.id.lowercase()
         val name = product.name.lowercase()
         val barcode = product.barcode?.lowercase()
+        val sku = product.sku?.lowercase()
         return when {
-            id == q || name == q || barcode == q -> 0
-            id.startsWith(q) || name.startsWith(q) || (barcode != null && barcode.startsWith(q)) -> 1
-            id.contains(q) || name.contains(q) || (barcode != null && barcode.contains(q)) -> 2
+            id == q || name == q || barcode == q || sku == q -> 0
+            id.startsWith(q) || name.startsWith(q) || (barcode != null && barcode.startsWith(q)) || (sku != null && sku.startsWith(q)) -> 1
+            id.contains(q) || name.contains(q) || (barcode != null && barcode.contains(q)) || (sku != null && sku.contains(q)) -> 2
             else -> 3
         }
     }

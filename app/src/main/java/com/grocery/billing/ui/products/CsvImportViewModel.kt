@@ -9,6 +9,7 @@ import com.grocery.billing.data.entity.Product
 import com.grocery.billing.data.entity.ProductPriceOption
 import com.grocery.billing.data.repository.ProductRepository
 import com.grocery.billing.util.Dates
+import com.grocery.billing.util.SkuGenerator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,15 +47,33 @@ class CsvImportViewModel(
             val loaded = _state.value as? CsvImportState.Loaded ?: return@launch
             try {
                 val now = Dates.isoTimestamp()
+                val existingSkus = productRepository.getAll().mapNotNull { it.sku }.toSet()
+                val existingBarcodes = productRepository.getAll().mapNotNull { it.barcode }.toSet()
+                val usedSkus = existingSkus.toMutableSet()
+                val usedBarcodes = existingBarcodes.toMutableSet()
+
                 val products = mutableListOf<Product>()
                 val extras = mutableListOf<ProductPriceOption>()
                 for (row in loaded.analysis.valid) {
+                    val sku = if (row.sku != null && row.sku.isNotEmpty()) {
+                        row.sku
+                    } else {
+                        productRepository.generateUniqueSku(row.name, usedSkus).also { usedSkus += it }
+                    }
+
+                    val barcode = if (row.barcode != null && row.barcode.isNotEmpty()) {
+                        row.barcode
+                    } else {
+                        productRepository.generateUniqueBarcode(usedBarcodes).also { usedBarcodes += it }
+                    }
+
                     products += Product(
                         id = row.id,
                         name = row.name,
                         sellingPricePaise = row.sellingPricePaise,
                         unit = row.unit,
-                        barcode = row.barcode,
+                        barcode = barcode.ifEmpty { null },
+                        sku = sku.ifEmpty { null },
                         createdAt = now,
                         updatedAt = now
                     )
