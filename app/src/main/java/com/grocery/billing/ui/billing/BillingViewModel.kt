@@ -610,6 +610,12 @@ class BillingViewModel(
 
     // ---- Draft persistence ----
 
+    /** Saves the current draft immediately. Called before sharing to ensure data is persisted. */
+    fun forceSaveDraft() {
+        autoSaveJob?.cancel()
+        viewModelScope.launch { saveDraft() }
+    }
+
     private fun scheduleAutoSave() {
         autoSaveJob?.cancel()
         autoSaveJob = viewModelScope.launch {

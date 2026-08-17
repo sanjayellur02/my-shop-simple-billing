@@ -34,15 +34,19 @@ import com.grocery.billing.share.ShareLauncher
 import com.grocery.billing.ui.components.ErrorText
 
 /**
- * Share dialog: enter / select a mobile number, then choose WhatsApp, SMS
- * or the Android share sheet. WhatsApp sends the bill as a PDF (recipient is
- * picked inside WhatsApp); SMS sends plain text. Nothing is sent without the
- * user's action.
+ * Share dialog: enter / select a mobile number, then send the bill via
+ * WhatsApp or SMS. WhatsApp sends the bill as a PDF; SMS sends plain text.
+ * If WhatsApp is unavailable, the bill is automatically sent via SMS instead.
+ * If both are unavailable, a clear error message is shown.
+ *
+ * @param onBeforeShare Optional callback invoked before any external app is
+ *   launched (e.g. to force-save the current draft).
  */
 @Composable
 fun ShareBillDialog(
     data: ShareBillData,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onBeforeShare: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var number by remember { mutableStateOf("") }
@@ -63,23 +67,65 @@ fun ShareBillDialog(
             error = "Please enter a valid mobile number."
             return
         }
+        onBeforeShare?.invoke()
         launch(number)
         onDismiss()
     }
 
+    /**
+     * WhatsApp with PDF: try WhatsApp → fallback to SMS → show error if both fail.
+     * Does NOT dismiss the dialog on failure so the user keeps their data.
+     */
     fun shareWhatsAppPdf() {
         if (!ShareLauncher.isValidPhoneNumber(number)) {
             error = "Please enter a valid mobile number."
             return
         }
+        onBeforeShare?.invoke()
         val uri = BillPdf.generateShareUri(context, data)
+
+        // 1. Try WhatsApp with PDF attachment
         if (uri != null) {
-            ShareLauncher.openWhatsAppPdfToNumber(context, uri, number, caption = "Bill ${data.billNumber}")
-            onDismiss()
-        } else {
-            ShareLauncher.openWhatsApp(context, number, data.text)
-            onDismiss()
+            val launched = ShareLauncher.openWhatsAppPdfToNumber(
+                context, uri, number, caption = "Bill ${data.billNumber}"
+            )
+            if (launched) {
+                onDismiss()
+                return
+            }
         }
+
+        // 2. Try WhatsApp with plain text
+        if (ShareLauncher.openWhatsApp(context, number, data.text)) {
+            onDismiss()
+            return
+        }
+
+        // 3. Try SMS as fallback
+        if (ShareLauncher.openSms(context, number, data.text)) {
+            onDismiss()
+            return
+        }
+
+        // 4. Nothing available
+        error = "WhatsApp and SMS are not available on this device."
+    }
+
+    /**
+     * SMS only: try SMS → show error if unavailable.
+     * Does NOT dismiss the dialog on failure.
+     */
+    fun shareSms() {
+        if (!ShareLauncher.isValidPhoneNumber(number)) {
+            error = "Please enter a valid mobile number."
+            return
+        }
+        onBeforeShare?.invoke()
+        if (ShareLauncher.openSms(context, number, data.text)) {
+            onDismiss()
+            return
+        }
+        error = "SMS is not available on this device."
     }
 
     AlertDialog(
@@ -117,9 +163,10 @@ fun ShareBillDialog(
                     shareWhatsAppPdf()
                 }
                 ShareActionButton("Send via SMS") {
-                    shareWithNumber { n -> ShareLauncher.openSms(context, n, data.text) }
+                    shareSms()
                 }
                 ShareActionButton("Other Share Options") {
+                    onBeforeShare?.invoke()
                     ShareLauncher.openShareSheet(context, data.text)
                     onDismiss()
                 }

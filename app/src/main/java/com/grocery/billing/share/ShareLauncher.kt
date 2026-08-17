@@ -15,8 +15,8 @@ object ShareLauncher {
 
     private const val TAG = "ShareLauncher"
 
-    /** Tries the WhatsApp app with the number and message; falls back to wa.me. */
-    fun openWhatsApp(context: Context, phoneNumber: String, text: String) {
+    /** Tries the WhatsApp app with the number and message; falls back to wa.me. Returns true if launched. */
+    fun openWhatsApp(context: Context, phoneNumber: String, text: String): Boolean {
         val digits = phoneNumber.filter { it.isDigit() }
         try {
             val sendToWa = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$digits")).apply {
@@ -24,7 +24,7 @@ object ShareLauncher {
                 putExtra(Intent.EXTRA_TEXT, text)
             }
             context.startActivity(sendToWa)
-            return
+            return true
         } catch (_: ActivityNotFoundException) { }
         try {
             val waMe = Intent(
@@ -32,34 +32,40 @@ object ShareLauncher {
                 Uri.parse("https://wa.me/$digits?text=" + Uri.encode(text))
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(waMe)
+            return true
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "No app can handle WhatsApp share", e)
         }
+        return false
     }
 
-    fun openSms(context: Context, phoneNumber: String, text: String) {
+    /** Opens SMS app. Returns true if launched. */
+    fun openSms(context: Context, phoneNumber: String, text: String): Boolean {
         try {
             val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${phoneNumber.trim()}")).apply {
                 putExtra(Intent.EXTRA_TEXT, text)
                 putExtra("sms_body", text)
             }
             context.startActivity(intent)
+            return true
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "No app can handle SMS", e)
         }
+        return false
     }
 
     /**
      * Opens WhatsApp with the bill attached as a PDF and the recipient's chat
      * pre-selected using WhatsApp's "jid" extra. Falls back to the contact
      * picker if WhatsApp can't resolve the direct target.
+     * Returns true if WhatsApp was launched.
      */
     fun openWhatsAppPdfToNumber(
         context: Context,
         pdfUri: Uri,
         phoneNumber: String,
         caption: String = ""
-    ) {
+    ): Boolean {
         val jid = waJid(phoneNumber)
         if (jid != null) {
             try {
@@ -72,18 +78,19 @@ object ShareLauncher {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 context.startActivity(direct)
-                return
+                return true
             } catch (_: ActivityNotFoundException) { }
         }
-        openWhatsAppPdf(context, pdfUri, caption)
+        return openWhatsAppPdf(context, pdfUri, caption)
     }
 
     /**
      * Opens WhatsApp with the bill attached as a PDF. WhatsApp shows its own
      * contact picker (it does not accept a prefilled number for attachments);
      * if WhatsApp is not installed the PDF is offered through the share sheet.
+     * Returns true if launched.
      */
-    fun openWhatsAppPdf(context: Context, pdfUri: Uri, caption: String = "") {
+    fun openWhatsAppPdf(context: Context, pdfUri: Uri, caption: String = ""): Boolean {
         try {
             val whatsapp = Intent(Intent.ACTION_SEND).apply {
                 type = "application/pdf"
@@ -93,7 +100,7 @@ object ShareLauncher {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(whatsapp)
-            return
+            return true
         } catch (_: ActivityNotFoundException) { }
         try {
             val generic = Intent(Intent.ACTION_SEND).apply {
@@ -103,9 +110,11 @@ object ShareLauncher {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(generic, "Share Bill (PDF)"))
+            return true
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "No app can handle PDF share", e)
         }
+        return false
     }
 
     fun openShareSheet(context: Context, text: String) {

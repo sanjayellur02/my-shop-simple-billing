@@ -250,7 +250,8 @@ fun BillReviewScreen(
                 thankYou = shop?.thankYou ?: "Thank you!",
                 text = billText
             ),
-            onDismiss = { showShare = false }
+            onDismiss = { showShare = false },
+            onBeforeShare = billingViewModel::forceSaveDraft
         )
     }
 }
