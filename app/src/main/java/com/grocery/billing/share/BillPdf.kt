@@ -245,7 +245,7 @@ object BillPdf {
         y = drawTotals(canvas, y, data)
 
         // ── Thank-you footer ──────────────────────────────────────────
-        val footerPaint = textPaint(SIZE_FOOTER, italic = true, color = COLOR_FOOTER_TEXT, align = Paint.Align.CENTER)
+        val footerPaint = textPaint(SIZE_FOOTER, italic = true, color = COLOR_FOOTER_TEXT)
         val footerLayout = buildLayout(data.thankYou, footerPaint, CONTENT_WIDTH, Layout.Alignment.ALIGN_CENTER)
         val footerH = footerLayout.height.toFloat() + 16f
         if (y + footerH > BOTTOM_LIMIT) {
@@ -271,20 +271,25 @@ object BillPdf {
     private fun drawShopHeader(canvas: Canvas, data: ShareBillData): Float {
         var y = MARGIN
 
-        val pShop = textPaint(SIZE_SHOP_NAME, bold = true, align = Paint.Align.CENTER)
+        // NOTE: paints handed to StaticLayout must keep Paint.Align.LEFT (the
+        // default). StaticLayout positions each line itself based on the
+        // Layout.Alignment argument below; if the paint's own textAlign is
+        // also set to CENTER/RIGHT, the offset gets applied a second time on
+        // top of StaticLayout's own centering, shifting text off the page.
+        val pShop = textPaint(SIZE_SHOP_NAME, bold = true)
         val shopLayout = buildLayout(data.shopName, pShop, CONTENT_WIDTH, Layout.Alignment.ALIGN_CENTER)
         drawLayout(canvas, shopLayout, CONTENT_LEFT, y)
         y += shopLayout.height.toFloat()
 
         if (data.showAddress && data.address.isNotBlank()) {
-            val pAddr = textPaint(SIZE_SUBHEADER, align = Paint.Align.CENTER)
+            val pAddr = textPaint(SIZE_SUBHEADER)
             val addrLayout = buildLayout(data.address, pAddr, CONTENT_WIDTH, Layout.Alignment.ALIGN_CENTER)
             drawLayout(canvas, addrLayout, CONTENT_LEFT, y)
             y += addrLayout.height.toFloat()
         }
 
         if (data.phone.isNotBlank()) {
-            val pPhone = textPaint(SIZE_SUBHEADER, align = Paint.Align.CENTER)
+            val pPhone = textPaint(SIZE_SUBHEADER)
             val phoneLayout = buildLayout("Phone: ${data.phone}", pPhone, CONTENT_WIDTH, Layout.Alignment.ALIGN_CENTER)
             drawLayout(canvas, phoneLayout, CONTENT_LEFT, y)
             y += phoneLayout.height.toFloat()
