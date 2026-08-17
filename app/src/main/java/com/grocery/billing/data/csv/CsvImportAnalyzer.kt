@@ -91,13 +91,18 @@ object CsvImportAnalyzer {
 
             val existing = byId[id]
             if (existing != null) {
-                if (priceText.isNotEmpty()) {
+                val matchesFirstEntry = pricePaise == existing.sellingPricePaise && unit == existing.unit
+                val matchesExistingOption = existing.extraOptions.any {
+                    it.sellingPricePaise == pricePaise && it.unit == unit
+                }
+
+                if (matchesFirstEntry || matchesExistingOption) {
+                    duplicates++
+                    if (errors.size < 10) errors.add("Row $id: duplicate product id.")
+                } else {
                     byId[id] = existing.copy(
                         extraOptions = existing.extraOptions + ProductExtraOption(pricePaise, unit)
                     )
-                } else {
-                    duplicates++
-                    if (errors.size < 10) errors.add("Row $id: duplicate product id.")
                 }
                 continue
             }

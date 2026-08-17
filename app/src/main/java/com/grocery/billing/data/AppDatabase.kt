@@ -31,7 +31,7 @@ import com.grocery.billing.data.entity.Setting
         HeldBill::class,
         HeldBillItem::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -105,6 +105,31 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS product_prices_new (
+                        option_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        product_id TEXT NOT NULL,
+                        selling_price_paise INTEGER NOT NULL,
+                        unit TEXT NOT NULL DEFAULT '',
+                        FOREIGN KEY(product_id) REFERENCES products(product_id) ON DELETE CASCADE ON UPDATE CASCADE
+                    )
+                    """
+                )
+                db.execSQL(
+                    "INSERT INTO product_prices_new (option_id, product_id, selling_price_paise, unit) " +
+                        "SELECT option_id, product_id, selling_price_paise, unit FROM product_prices"
+                )
+                db.execSQL("DROP TABLE product_prices")
+                db.execSQL("ALTER TABLE product_prices_new RENAME TO product_prices")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_product_prices_product_id ON product_prices(product_id)"
+                )
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -115,7 +140,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "grocery_billing.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build().also { instance = it }
             }
     }

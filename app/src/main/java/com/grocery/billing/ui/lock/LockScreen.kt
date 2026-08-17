@@ -1,7 +1,9 @@
 package com.grocery.billing.ui.lock
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -29,15 +31,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import com.grocery.billing.ui.components.ErrorText
 
 @Composable
-fun LockScreen(
-    viewModel: LockViewModel,
-    activity: FragmentActivity
-) {
+fun LockScreen(viewModel: LockViewModel) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -49,33 +46,12 @@ fun LockScreen(
             BiometricManager.BIOMETRIC_SUCCESS
     }
 
-    val promptInfo = remember {
-        BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock")
-            .setSubtitle("Use your fingerprint to unlock")
-            .setNegativeButtonText("Use PIN")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .build()
-    }
-
-    val biometricPrompt = remember {
-        BiometricPrompt(
-            activity,
-            ContextCompat.getMainExecutor(activity),
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    viewModel.unlock()
-                }
-
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    if (errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
-                        errorCode != BiometricPrompt.ERROR_USER_CANCELED
-                    ) {
-                        error = errString.toString()
-                    }
-                }
-            }
-        )
+    val biometricLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            viewModel.unlock()
+        }
     }
 
     Surface(
@@ -139,7 +115,10 @@ fun LockScreen(
             if (fingerprintAvailable) {
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { biometricPrompt.authenticate(promptInfo) },
+                    onClick = {
+                        val intent = Intent(context, BiometricActivity::class.java)
+                        biometricLauncher.launch(intent)
+                    },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {

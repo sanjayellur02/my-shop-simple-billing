@@ -200,7 +200,6 @@ class BillingViewModel(
                 }
             }
             val single = options.singleOrNull()
-            val skipPricing = _state.value.waitingMode
             _state.update {
                 it.copy(
                     selectedProduct = product,
@@ -208,11 +207,11 @@ class BillingViewModel(
                     searchResults = emptyList(),
                     searching = false,
                     quantityText = "1",
-                    rateText = if (skipPricing) "" else single?.let { o -> Money.paiseToNumber(o.pricePaise) } ?: "",
-                    selectedUnit = if (skipPricing) "" else single?.unit ?: "",
+                    rateText = single?.let { o -> Money.paiseToNumber(o.pricePaise) } ?: "",
+                    selectedUnit = single?.unit ?: "",
                     priceOptions = options,
-                    showPricePicker = !skipPricing && options.size > 1,
-                    showRateEditor = !skipPricing && options.isEmpty(),
+                    showPricePicker = options.size > 1,
+                    showRateEditor = options.isEmpty(),
                     error = null
                 )
             }
@@ -421,6 +420,40 @@ class BillingViewModel(
         }
     }
 
+    fun setItemQuantity(key: Long, quantity: String) {
+        val cleaned = quantity.filter { it.isDigit() || it == '.' }
+        val qtyBd = cleaned.toBigDecimalOrNull()
+        if (cleaned.isEmpty() || qtyBd == null || qtyBd <= BigDecimal.ZERO) return
+        val qty = Money.formatQuantity(cleaned)
+        _state.update { s ->
+            val items = s.items.map {
+                if (it.key == key) {
+                    it.copy(
+                        quantity = qty,
+                        amountPaise = BillCalculator.itemAmountPaise(qty, it.ratePaise)
+                    )
+                } else it
+            }
+            recalc(s.copy(items = items))
+        }
+    }
+
+    fun setItemRate(key: Long, rateText: String) {
+        val cleaned = rateText.filter { it.isDigit() || it == '.' }
+        val ratePaise = Money.parseRupeesToPaise(cleaned) ?: 0L
+        _state.update { s ->
+            val items = s.items.map {
+                if (it.key == key) {
+                    it.copy(
+                        ratePaise = ratePaise,
+                        amountPaise = BillCalculator.itemAmountPaise(it.quantity, ratePaise)
+                    )
+                } else it
+            }
+            recalc(s.copy(items = items))
+        }
+    }
+
     fun removeItem(key: Long) {
         _state.update { s ->
             recalc(s.copy(items = s.items.filterNot { it.key == key }))
@@ -438,6 +471,7 @@ class BillingViewModel(
         val s = _state.value
         if (s.items.isEmpty()) return
         viewModelScope.launch {
+            val oldId = resumedHeldBillId
             val id = heldBillRepository.hold(
                 reference = reference,
                 billNumber = s.billNumber.ifEmpty { BillNumbers.format(billRepository.nextBillNumber()) },
@@ -457,10 +491,17 @@ class BillingViewModel(
                 totalPaise = s.totalPaise
             )
             if (id > 0) {
+                if (oldId != null) {
+                    heldBillRepository.delete(oldId)
+                    resumedHeldBillId = null
+                }
                 if (_state.value.waitingMode) startWaitingBill() else startNewBill()
             }
         }
     }
+
+    /** ID of the held bill that was resumed; deleted only after a new bill is saved. */
+    private var resumedHeldBillId: Long? = null
 
     suspend fun resumeHeld(id: Long): Boolean {
         val held = heldBillRepository.getWithItems(id) ?: return false
@@ -487,7 +528,7 @@ class BillingViewModel(
             heldCount = current.heldCount,
             allowPriceOverride = current.allowPriceOverride
         )
-        heldBillRepository.delete(id)
+        resumedHeldBillId = id
         return true
     }
 
@@ -518,6 +559,10 @@ class BillingViewModel(
                     discountPaise = s.discountPaise,
                     totalPaise = s.totalPaise
                 )
+                resumedHeldBillId?.let { heldId ->
+                    heldBillRepository.delete(heldId)
+                    resumedHeldBillId = null
+                }
                 _state.value = BillingUiState(savedBillId = billId)
             } catch (e: Exception) {
                 _state.update { it.copy(saving = false, saveError = e.message) }

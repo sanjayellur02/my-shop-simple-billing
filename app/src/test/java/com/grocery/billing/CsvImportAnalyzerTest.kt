@@ -122,10 +122,37 @@ class CsvImportAnalyzerTest {
     }
 
     @Test
-    fun repeatedIdWithoutPriceStaysDuplicate() {
+    fun repeatedIdWithoutPriceBecomesExtraOption() {
         val result = analyze("id,product_name,price\n101,Rice,70\n101,Rice")
+        assertEquals(1, result.valid.size)
+        assertEquals(0, result.duplicateCount)
+        assertEquals(1, result.valid[0].extraOptions.size)
+        assertEquals(0L, result.valid[0].extraOptions[0].sellingPricePaise)
+    }
+
+    @Test
+    fun repeatedIdSameUnitAndPriceIsDuplicate() {
+        val result = analyze("id,product_name,price,unit\n101,Rice,70,kg\n101,Rice,70,kg")
         assertEquals(1, result.valid.size)
         assertEquals(1, result.duplicateCount)
         assertEquals(0, result.valid[0].extraOptions.size)
+    }
+
+    @Test
+    fun repeatedIdSameUnitDifferentPriceIsExtraOption() {
+        val result = analyze("id,product_name,price,unit\n101,Rice,70,kg\n101,Rice,140,kg")
+        assertEquals(1, result.valid.size)
+        assertEquals(0, result.duplicateCount)
+        assertEquals(1, result.valid[0].extraOptions.size)
+        assertEquals(14000L, result.valid[0].extraOptions[0].sellingPricePaise)
+    }
+
+    @Test
+    fun repeatedIdDifferentUnitNoPriceIsExtraOption() {
+        val result = analyze("id,product_name,price,unit\n101,Rice,,kg\n101,Rice,,1/2kg")
+        assertEquals(1, result.valid.size)
+        assertEquals(0, result.duplicateCount)
+        assertEquals(1, result.valid[0].extraOptions.size)
+        assertEquals("1/2kg", result.valid[0].extraOptions[0].unit)
     }
 }

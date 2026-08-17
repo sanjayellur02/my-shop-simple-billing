@@ -1,5 +1,7 @@
 package com.grocery.billing.data.repository
 
+import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import com.grocery.billing.data.dao.BillDao
 import com.grocery.billing.data.dao.BillItemDao
 import com.grocery.billing.data.entity.Bill
@@ -12,7 +14,8 @@ import kotlinx.coroutines.flow.combine
 
 class BillRepository(
     private val billDao: BillDao,
-    private val billItemDao: BillItemDao
+    private val billItemDao: BillItemDao,
+    private val database: RoomDatabase
 ) {
 
     val bills: Flow<List<Bill>> = billDao.observeAll()
@@ -38,7 +41,7 @@ class BillRepository(
     suspend fun nextBillNumber(): Long =
         BillNumbers.nextNumber(billDao.allBillNumbers())
 
-    /** Persists a completed bill. Returns the new bill id. */
+    /** Persists a completed bill atomically. Returns the new bill id. */
     suspend fun saveBill(
         billNumber: String,
         date: String = Dates.todayDateString(),
@@ -48,30 +51,32 @@ class BillRepository(
         discountPaise: Long,
         totalPaise: Long
     ): Long {
-        val billId = billDao.insert(
-            Bill(
-                billNumber = billNumber,
-                billDate = date,
-                billTime = time,
-                subtotalPaise = subtotalPaise,
-                discountPaise = discountPaise,
-                totalPaise = totalPaise,
-                createdAt = Dates.isoTimestamp()
-            )
-        )
-        billItemDao.insertAll(
-            items.map {
-                BillItem(
-                    billId = billId,
-                    productId = it.productId,
-                    productNameSnapshot = it.productName,
-                    quantity = it.quantity,
-                    ratePaise = it.ratePaise,
-                    amountPaise = it.amountPaise
+        return database.withTransaction {
+            val billId = billDao.insert(
+                Bill(
+                    billNumber = billNumber,
+                    billDate = date,
+                    billTime = time,
+                    subtotalPaise = subtotalPaise,
+                    discountPaise = discountPaise,
+                    totalPaise = totalPaise,
+                    createdAt = Dates.isoTimestamp()
                 )
-            }
-        )
-        return billId
+            )
+            billItemDao.insertAll(
+                items.map {
+                    BillItem(
+                        billId = billId,
+                        productId = it.productId,
+                        productNameSnapshot = it.productName,
+                        quantity = it.quantity,
+                        ratePaise = it.ratePaise,
+                        amountPaise = it.amountPaise
+                    )
+                }
+            )
+            billId
+        }
     }
 }
 

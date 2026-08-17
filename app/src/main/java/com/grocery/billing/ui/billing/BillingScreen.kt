@@ -149,9 +149,9 @@ fun BillingScreen(
             )
             if (state.waitingMode) {
                 Text(
-                    "Add items and quantities now. Prices can be set later from Waiting Customers.",
+                    "Waiting customer bill",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.tertiary
                 )
             }
             Spacer(Modifier.height(6.dp))
@@ -252,7 +252,10 @@ fun BillingScreen(
                     items(state.items, key = { it.key }) { item ->
                         BillItemRow(
                             item = item,
+                            allowPriceOverride = state.allowPriceOverride,
                             onAdjust = { delta -> billingViewModel.adjustQuantity(item.key, delta) },
+                            onQuantityChange = { qty -> billingViewModel.setItemQuantity(item.key, qty) },
+                            onRateChange = { rate -> billingViewModel.setItemRate(item.key, rate) },
                             onDelete = { removingItem = item }
                         )
                         HorizontalDivider()
@@ -672,39 +675,122 @@ private fun RecentProductsSection(
 @Composable
 private fun BillItemRow(
     item: DraftItem,
+    allowPriceOverride: Boolean,
     onAdjust: (Long) -> Unit,
+    onQuantityChange: (String) -> Unit,
+    onRateChange: (String) -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
+    var editingQty by remember { mutableStateOf(false) }
+    var editingRate by remember { mutableStateOf(false) }
+    var qtyField by remember(item.key) { mutableStateOf(item.quantity) }
+    var rateField by remember(item.key) { mutableStateOf(Money.paiseToNumber(item.ratePaise)) }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 6.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(item.productName, style = MaterialTheme.typography.titleSmall)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(item.productName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Remove item",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (editingQty) {
+                OutlinedTextField(
+                    value = qtyField,
+                    onValueChange = { qtyField = it.filter { c -> c.isDigit() || c == '.' } },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        onQuantityChange(qtyField)
+                        editingQty = false
+                    }),
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    placeholder = { Text("Qty") }
+                )
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    StepperButton(
+                        icon = Icons.Filled.Remove,
+                        contentDescription = "Decrease quantity",
+                        onClick = { onAdjust(-1) }
+                    )
+                    Text(
+                        item.quantity,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .clickable {
+                                qtyField = item.quantity
+                                editingQty = true
+                            }
+                            .padding(horizontal = 4.dp)
+                    )
+                    StepperButton(
+                        icon = Icons.Filled.Add,
+                        contentDescription = "Increase quantity",
+                        onClick = { onAdjust(1) }
+                    )
+                }
+            }
+
+            Text(" × ", style = MaterialTheme.typography.bodyMedium)
+
+            if (editingRate) {
+                OutlinedTextField(
+                    value = rateField,
+                    onValueChange = { rateField = it.filter { c -> c.isDigit() || c == '.' } },
+                    modifier = Modifier.width(100.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        onRateChange(rateField)
+                        editingRate = false
+                    }),
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    placeholder = { Text("₹") }
+                )
+            } else {
+                Text(
+                    Money.paiseToDisplay(item.ratePaise),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .clickable(enabled = allowPriceOverride) {
+                            rateField = Money.paiseToNumber(item.ratePaise)
+                            editingRate = true
+                        }
+                        .padding(horizontal = 4.dp)
+                )
+            }
+
             Text(
-                "${item.quantity} × ${Money.paiseToDisplay(item.ratePaise)}",
-                style = MaterialTheme.typography.bodySmall,
+                " = ${Money.paiseToDisplay(item.amountPaise)}",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            Money.paiseToDisplay(item.amountPaise),
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(end = 4.dp)
-        )
-        IconButton(onClick = { onAdjust(-1) }, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Filled.Remove, contentDescription = "Decrease quantity")
-        }
-        IconButton(onClick = { onAdjust(1) }, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Filled.Add, contentDescription = "Increase quantity")
-        }
-        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-            Icon(
-                Icons.Filled.Delete,
-                contentDescription = "Remove item",
-                tint = MaterialTheme.colorScheme.error
             )
         }
     }

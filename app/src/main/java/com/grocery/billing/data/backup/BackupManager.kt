@@ -146,12 +146,17 @@ class BackupManager(private val context: Context) {
                 val items = parseBillItems(root.optJSONArray("billItems"))
                 val heldBills = parseHeldBills(root.optJSONArray("heldBills"))
                 val heldItems = parseHeldBillItems(root.optJSONArray("heldBillItems"))
+                val settings = parseSettings(root.optJSONObject("settings"))
+
+                if (products.isEmpty() && bills.isEmpty() && settings.isEmpty()) {
+                    return@withTransaction RestoreResult(false, "Backup file appears empty or invalid.")
+                }
 
                 database.billItemDao().deleteAll()
                 database.billDao().deleteAll()
                 database.heldBillItemDao().deleteAll()
                 database.heldBillDao().deleteAll()
-                database.productDao().deleteAll() // clear via separate statement
+                database.productDao().deleteAll()
                 database.productPriceDao().deleteAll()
                 database.settingsDao().deleteAll()
 
@@ -162,10 +167,12 @@ class BackupManager(private val context: Context) {
                 heldBills.forEach { database.heldBillDao().insert(it) }
                 if (heldItems.isNotEmpty()) database.heldBillItemDao().insertAll(heldItems)
                 database.settingsDao().putAll(
-                    parseSettings(root.optJSONObject("settings")).map { com.grocery.billing.data.entity.Setting(it.key, it.value) }
+                    settings.map { com.grocery.billing.data.entity.Setting(it.key, it.value) }
                 )
             }
             RestoreResult(true, null)
+        } catch (e: OutOfMemoryError) {
+            RestoreResult(false, "Backup file is too large to restore.")
         } catch (e: Exception) {
             RestoreResult(false, "Restore failed: ${e.message}")
         }

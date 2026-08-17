@@ -33,6 +33,6 @@ data class ProductPriceOption(
     val productId: String,
     @ColumnInfo(name = "selling_price_paise")
     val sellingPricePaise: Long,
-    @ColumnInfo(name = "unit")
+    @ColumnInfo(name = "unit", defaultValue = "")
     val unit: String = ""
 )

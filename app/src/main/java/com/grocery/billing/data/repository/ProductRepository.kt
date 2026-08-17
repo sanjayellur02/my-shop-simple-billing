@@ -1,5 +1,7 @@
 package com.grocery.billing.data.repository
 
+import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import com.grocery.billing.data.dao.ProductDao
 import com.grocery.billing.data.dao.ProductPriceDao
 import com.grocery.billing.data.entity.Product
@@ -9,7 +11,8 @@ import kotlinx.coroutines.flow.Flow
 
 class ProductRepository(
     private val dao: ProductDao,
-    private val priceDao: ProductPriceDao
+    private val priceDao: ProductPriceDao,
+    private val database: RoomDatabase
 ) {
 
     val products: Flow<List<Product>> = dao.observeAll()
@@ -29,10 +32,12 @@ class ProductRepository(
     suspend fun getExtraPrices(productId: String): List<ProductPriceOption> =
         priceDao.getByProduct(productId)
 
-    /** Replaces all extra price options for a product with the given list. */
+    /** Replaces all extra price options for a product atomically. */
     suspend fun replaceExtraPrices(productId: String, options: List<ProductPriceOption>) {
-        priceDao.deleteByProduct(productId)
-        if (options.isNotEmpty()) priceDao.insertAll(options)
+        database.withTransaction {
+            priceDao.deleteByProduct(productId)
+            if (options.isNotEmpty()) priceDao.insertAll(options)
+        }
     }
 
     /** Returns error message or null on success. */
@@ -91,14 +96,20 @@ class ProductRepository(
         return null
     }
 
+    /** Atomically deletes a product and its extra prices. */
     suspend fun delete(product: Product) {
-        priceDao.deleteByProduct(product.id)
-        dao.delete(product)
+        database.withTransaction {
+            priceDao.deleteByProduct(product.id)
+            dao.delete(product)
+        }
     }
 
+    /** Atomically inserts products and their extra price options. */
     suspend fun insertAll(products: List<Product>, extraOptions: List<ProductPriceOption> = emptyList()) {
         if (products.isEmpty()) return
-        dao.insertAll(products)
-        if (extraOptions.isNotEmpty()) priceDao.insertAll(extraOptions)
+        database.withTransaction {
+            dao.insertAll(products)
+            if (extraOptions.isNotEmpty()) priceDao.insertAll(extraOptions)
+        }
     }
 }

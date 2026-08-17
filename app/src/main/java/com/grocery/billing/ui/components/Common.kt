@@ -95,6 +95,7 @@ fun ScreenScaffold(
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
+                            @Suppress("DEPRECATION")
                             Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }

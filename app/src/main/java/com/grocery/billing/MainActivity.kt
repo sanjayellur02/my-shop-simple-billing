@@ -7,7 +7,6 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grocery.billing.ui.ViewModelFactory
 import com.grocery.billing.ui.AppNavHost
@@ -16,7 +15,7 @@ import com.grocery.billing.ui.lock.LockScreen
 import com.grocery.billing.ui.lock.LockViewModel
 import com.grocery.billing.ui.theme.GroceryTheme
 
-class MainActivity : FragmentActivity() {
+class MainActivity : ComponentActivity() {
 
     private val factory: ViewModelFactory by lazy {
         ViewModelFactory((application as GroceryApp).container)
@@ -30,7 +29,7 @@ class MainActivity : FragmentActivity() {
             GroceryTheme {
                 val locked by lockViewModel.locked.collectAsState()
                 if (locked) {
-                    LockScreen(lockViewModel, this@MainActivity)
+                    LockScreen(lockViewModel)
                 } else {
                     GroceryAppRoot(factory)
                 }

@@ -12,9 +12,9 @@ class AppContainer(context: Context) {
 
     private val database = AppDatabase.getInstance(context)
 
-    val productRepository = ProductRepository(database.productDao(), database.productPriceDao())
-    val billRepository = BillRepository(database.billDao(), database.billItemDao())
-    val heldBillRepository = HeldBillRepository(database.heldBillDao(), database.heldBillItemDao())
+    val productRepository = ProductRepository(database.productDao(), database.productPriceDao(), database)
+    val billRepository = BillRepository(database.billDao(), database.billItemDao(), database)
+    val heldBillRepository = HeldBillRepository(database.heldBillDao(), database.heldBillItemDao(), database)
     val settingsRepository = SettingsRepository(database.settingsDao())
     val appLockManager = AppLockManager(context)
 }

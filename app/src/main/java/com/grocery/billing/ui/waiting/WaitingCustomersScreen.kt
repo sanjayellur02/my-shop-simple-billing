@@ -1,5 +1,6 @@
 package com.grocery.billing.ui.waiting
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -103,7 +104,7 @@ fun WaitingCustomersScreen(
                         HeldBillRow(
                             held = held,
                             onResume = { resumeAndNavigate(held.heldBillId, toReview = false) },
-                            onEdit = { editingBill = held },
+                            onEditReference = { editingBill = held },
                             onDelete = { pendingDelete = held },
                             onComplete = { resumeAndNavigate(held.heldBillId, toReview = true) }
                         )
@@ -144,17 +145,27 @@ fun WaitingCustomersScreen(
 private fun HeldBillRow(
     held: HeldBillWithCount,
     onResume: () -> Unit,
-    onEdit: () -> Unit,
+    onEditReference: () -> Unit,
     onDelete: () -> Unit,
     onComplete: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Token ${held.billNumber}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    "Token ${held.billNumber} | ${held.reference.ifBlank { "Customer" }}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    held.reference.ifBlank { "Tap to add reference" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (held.reference.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.clickable { onEditReference() }
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
@@ -173,12 +184,11 @@ private fun HeldBillRow(
         Spacer(Modifier.height(8.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton("Billing", onResume, Modifier.weight(1f), filled = true)
+            ActionButton("Edit", onResume, Modifier.weight(1f), filled = true)
             ActionButton("Complete", onComplete, Modifier.weight(1f), filled = false)
         }
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton("Edit", onEdit, Modifier.weight(1f), filled = false)
             ActionButton("Delete", onDelete, Modifier.weight(1f), filled = false, destructive = true)
         }
     }

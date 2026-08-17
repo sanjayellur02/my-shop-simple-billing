@@ -95,6 +95,7 @@ fun BillReviewScreen(
                 title = { Text("Bill Review", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
+                        @Suppress("DEPRECATION")
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },

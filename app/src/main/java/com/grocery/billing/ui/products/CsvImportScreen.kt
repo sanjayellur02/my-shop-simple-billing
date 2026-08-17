@@ -34,7 +34,7 @@ fun CsvImportScreen(navController: NavHostController, factory: ViewModelFactory)
     val context = LocalContext.current
 
     val filePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
             val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "products.csv"
@@ -57,7 +57,7 @@ fun CsvImportScreen(navController: NavHostController, factory: ViewModelFactory)
         when (val s = state) {
             is CsvImportState.Idle -> IdleContent(
                 onPickFile = {
-                    filePicker.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream"))
+                    filePicker.launch("text/*")
                 },
                 onCancel = { navController.popBackStack() }
             )

@@ -1,5 +1,7 @@
 package com.grocery.billing.data.repository
 
+import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import com.grocery.billing.data.dao.HeldBillDao
 import com.grocery.billing.data.dao.HeldBillItemDao
 import com.grocery.billing.data.dao.HeldBillWithCount
@@ -23,7 +25,8 @@ data class HeldBillWithItems(
 
 class HeldBillRepository(
     private val heldBillDao: HeldBillDao,
-    private val heldBillItemDao: HeldBillItemDao
+    private val heldBillItemDao: HeldBillItemDao,
+    private val database: RoomDatabase
 ) {
 
     fun observeAll(): Flow<List<HeldBill>> = heldBillDao.observeAll()
@@ -35,6 +38,7 @@ class HeldBillRepository(
         return HeldBillWithItems(bill, heldBillItemDao.getByHeldBill(id))
     }
 
+    /** Atomically saves a held bill with all its items. */
     suspend fun hold(
         reference: String,
         billNumber: String,
@@ -45,31 +49,33 @@ class HeldBillRepository(
         discountPaise: Long,
         totalPaise: Long
     ): Long {
-        val id = heldBillDao.insert(
-            HeldBill(
-                reference = reference,
-                billNumber = billNumber,
-                billDate = date,
-                billTime = time,
-                subtotalPaise = subtotalPaise,
-                discountPaise = discountPaise,
-                totalPaise = totalPaise,
-                createdAt = Dates.isoTimestamp()
-            )
-        )
-        heldBillItemDao.insertAll(
-            items.map {
-                HeldBillItem(
-                    heldBillId = id,
-                    productId = it.productId,
-                    productNameSnapshot = it.productName,
-                    quantity = it.quantity,
-                    ratePaise = it.ratePaise,
-                    amountPaise = it.amountPaise
+        return database.withTransaction {
+            val id = heldBillDao.insert(
+                HeldBill(
+                    reference = reference,
+                    billNumber = billNumber,
+                    billDate = date,
+                    billTime = time,
+                    subtotalPaise = subtotalPaise,
+                    discountPaise = discountPaise,
+                    totalPaise = totalPaise,
+                    createdAt = Dates.isoTimestamp()
                 )
-            }
-        )
-        return id
+            )
+            heldBillItemDao.insertAll(
+                items.map {
+                    HeldBillItem(
+                        heldBillId = id,
+                        productId = it.productId,
+                        productNameSnapshot = it.productName,
+                        quantity = it.quantity,
+                        ratePaise = it.ratePaise,
+                        amountPaise = it.amountPaise
+                    )
+                }
+            )
+            id
+        }
     }
 
     suspend fun delete(id: Long) = heldBillDao.deleteById(id)

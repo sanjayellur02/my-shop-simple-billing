@@ -11,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -23,6 +24,7 @@ data class HomeUiState(
     val heldCount: Int = 0
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
     billRepository: BillRepository,
     settingsRepository: SettingsRepository,
