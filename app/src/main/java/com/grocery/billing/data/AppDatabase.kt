@@ -8,6 +8,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.grocery.billing.data.dao.BillDao
 import com.grocery.billing.data.dao.BillItemDao
+import com.grocery.billing.data.dao.DraftDao
 import com.grocery.billing.data.dao.HeldBillDao
 import com.grocery.billing.data.dao.HeldBillItemDao
 import com.grocery.billing.data.dao.ProductDao
@@ -15,6 +16,7 @@ import com.grocery.billing.data.dao.ProductPriceDao
 import com.grocery.billing.data.dao.SettingsDao
 import com.grocery.billing.data.entity.Bill
 import com.grocery.billing.data.entity.BillItem
+import com.grocery.billing.data.entity.Draft
 import com.grocery.billing.data.entity.HeldBill
 import com.grocery.billing.data.entity.HeldBillItem
 import com.grocery.billing.data.entity.Product
@@ -29,9 +31,10 @@ import com.grocery.billing.data.entity.Setting
         BillItem::class,
         Setting::class,
         HeldBill::class,
-        HeldBillItem::class
+        HeldBillItem::class,
+        Draft::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -43,6 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun settingsDao(): SettingsDao
     abstract fun heldBillDao(): HeldBillDao
     abstract fun heldBillItemDao(): HeldBillItemDao
+    abstract fun draftDao(): DraftDao
 
     companion object {
 
@@ -130,6 +134,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS drafts (
+                        draft_key TEXT NOT NULL PRIMARY KEY,
+                        draft_data TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    )
+                    """
+                )
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -140,7 +158,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "grocery_billing.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build().also { instance = it }
             }
     }

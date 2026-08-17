@@ -30,7 +30,7 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
             modelClass.isAssignableFrom(ProductListViewModel::class.java) ->
                 ProductListViewModel(container.productRepository)
             modelClass.isAssignableFrom(ProductEditViewModel::class.java) ->
-                ProductEditViewModel(container.productRepository, handle)
+                ProductEditViewModel(container.productRepository, container.draftRepository, handle)
             modelClass.isAssignableFrom(CsvImportViewModel::class.java) ->
                 CsvImportViewModel(container.productRepository)
             modelClass.isAssignableFrom(BillingViewModel::class.java) ->
@@ -38,7 +38,8 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
                     container.productRepository,
                     container.billRepository,
                     container.heldBillRepository,
-                    container.settingsRepository
+                    container.settingsRepository,
+                    container.draftRepository
                 )
             modelClass.isAssignableFrom(WaitingCustomersViewModel::class.java) ->
                 WaitingCustomersViewModel(container.heldBillRepository)

@@ -100,6 +100,13 @@ fun BillingScreen(
         billingViewModel.ensureStarted()
     }
 
+    LaunchedEffect(state.draftRestored) {
+        if (state.draftRestored) {
+            kotlinx.coroutines.delay(3000L)
+            billingViewModel.clearDraftRestored()
+        }
+    }
+
     LaunchedEffect(state.savedBillId) {
         state.savedBillId?.let { billId ->
             billingViewModel.consumeSaved()
@@ -147,6 +154,13 @@ fun BillingScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (state.draftRestored) {
+                Text(
+                    "Bill draft restored",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
             if (state.waitingMode) {
                 Text(
                     "Waiting customer bill",

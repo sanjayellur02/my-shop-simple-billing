@@ -34,6 +34,7 @@ import com.grocery.billing.ui.components.ErrorText
 import com.grocery.billing.ui.components.LargeButton
 import com.grocery.billing.ui.components.LargeOutlinedButton
 import com.grocery.billing.ui.components.ScreenScaffold
+import com.grocery.billing.ui.components.BarcodeImage
 
 @Composable
 fun ProductEditScreen(navController: NavHostController, factory: ViewModelFactory) {
@@ -43,6 +44,13 @@ fun ProductEditScreen(navController: NavHostController, factory: ViewModelFactor
 
     LaunchedEffect(state.saved) {
         if (state.saved) navController.popBackStack()
+    }
+
+    LaunchedEffect(state.draftRestored) {
+        if (state.draftRestored) {
+            kotlinx.coroutines.delay(3000L)
+            viewModel.clearDraftError()
+        }
     }
 
     ScreenScaffold(
@@ -57,6 +65,15 @@ fun ProductEditScreen(navController: NavHostController, factory: ViewModelFactor
                 .imePadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (state.draftRestored) {
+                Text(
+                    "Draft restored - your changes are auto-saved",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             OutlinedTextField(
                 value = state.id,
                 onValueChange = viewModel::onIdChange,
@@ -117,6 +134,10 @@ fun ProductEditScreen(navController: NavHostController, factory: ViewModelFactor
                 ),
                 textStyle = MaterialTheme.typography.titleLarge
             )
+
+            if (state.barcode.isNotBlank()) {
+                BarcodeImage(barcode = state.barcode)
+            }
 
             if (state.extraPrices.isNotEmpty()) {
                 HorizontalDivider()

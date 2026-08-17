@@ -8,6 +8,7 @@ import com.grocery.billing.data.entity.Product
 import com.grocery.billing.data.entity.SettingsKeys
 import com.grocery.billing.data.repository.BillItemDraft
 import com.grocery.billing.data.repository.BillRepository
+import com.grocery.billing.data.repository.DraftRepository
 import com.grocery.billing.data.repository.HeldBillItemDraft
 import com.grocery.billing.data.repository.HeldBillRepository
 import com.grocery.billing.data.repository.ProductRepository
@@ -65,7 +66,8 @@ data class BillingUiState(
     val saving: Boolean = false,
     val savedBillId: Long? = null,
     val saveError: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val draftRestored: Boolean = false
 )
 
 /**
@@ -77,7 +79,8 @@ class BillingViewModel(
     private val productRepository: ProductRepository,
     private val billRepository: BillRepository,
     private val heldBillRepository: HeldBillRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val draftRepository: DraftRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BillingUiState())
@@ -85,6 +88,12 @@ class BillingViewModel(
 
     private var itemKey = 0L
     private var searchJob: Job? = null
+    private var autoSaveJob: Job? = null
+
+    companion object {
+        private const val DRAFT_KEY = "bill"
+        private const val AUTO_SAVE_DEBOUNCE_MS = 800L
+    }
 
     init {
         viewModelScope.launch {
@@ -104,7 +113,17 @@ class BillingViewModel(
 
     fun ensureStarted() {
         if (_state.value.billNumber.isNotEmpty()) return
-        startNewBill()
+        viewModelScope.launch {
+            val draft = draftRepository.get(DRAFT_KEY)
+            if (draft != null) {
+                val restored = restoreDraft(draft.data)
+                if (restored != null && restored.items.isNotEmpty()) {
+                    _state.value = restored
+                    return@launch
+                }
+            }
+            startNewBill()
+        }
     }
 
     fun startNewBill() {
@@ -146,6 +165,11 @@ class BillingViewModel(
                 allowPriceOverride = s.allowPriceOverride
             )
         }
+        viewModelScope.launch { draftRepository.delete(DRAFT_KEY) }
+    }
+
+    fun clearDraftRestored() {
+        _state.update { it.copy(draftRestored = false) }
     }
 
     private fun recalc(s: BillingUiState): BillingUiState {
@@ -363,6 +387,7 @@ class BillingViewModel(
                 )
             )
         }
+        scheduleAutoSave()
         viewModelScope.launch {
             _state.update { it.copy(recentProducts = productRepository.recentlySold(8)) }
         }
@@ -382,6 +407,7 @@ class BillingViewModel(
             amountPaise = amount
         )
         _state.update { s -> recalc(s.copy(items = s.items + item)) }
+        scheduleAutoSave()
     }
 
     fun updateItem(key: Long, quantity: String, ratePaise: Long) {
@@ -401,6 +427,7 @@ class BillingViewModel(
                 )
             )
         }
+        scheduleAutoSave()
     }
 
     fun adjustQuantity(key: Long, delta: Long) {
@@ -418,6 +445,7 @@ class BillingViewModel(
             }
             recalc(s.copy(items = items))
         }
+        scheduleAutoSave()
     }
 
     fun setItemQuantity(key: Long, quantity: String) {
@@ -436,6 +464,7 @@ class BillingViewModel(
             }
             recalc(s.copy(items = items))
         }
+        scheduleAutoSave()
     }
 
     fun setItemRate(key: Long, rateText: String) {
@@ -452,17 +481,20 @@ class BillingViewModel(
             }
             recalc(s.copy(items = items))
         }
+        scheduleAutoSave()
     }
 
     fun removeItem(key: Long) {
         _state.update { s ->
             recalc(s.copy(items = s.items.filterNot { it.key == key }))
         }
+        scheduleAutoSave()
     }
 
     fun setDiscountText(text: String) {
         val paise = Money.parseRupeesToPaise(text) ?: 0L
         _state.update { s -> recalc(s.copy(discountText = text, discountPaise = paise)) }
+        scheduleAutoSave()
     }
 
     // ---- Hold / resume ----
@@ -491,6 +523,7 @@ class BillingViewModel(
                 totalPaise = s.totalPaise
             )
             if (id > 0) {
+                draftRepository.delete(DRAFT_KEY)
                 if (oldId != null) {
                     heldBillRepository.delete(oldId)
                     resumedHeldBillId = null
@@ -559,6 +592,7 @@ class BillingViewModel(
                     discountPaise = s.discountPaise,
                     totalPaise = s.totalPaise
                 )
+                draftRepository.delete(DRAFT_KEY)
                 resumedHeldBillId?.let { heldId ->
                     heldBillRepository.delete(heldId)
                     resumedHeldBillId = null
@@ -572,5 +606,92 @@ class BillingViewModel(
 
     fun consumeSaved() {
         _state.update { it.copy(savedBillId = null) }
+    }
+
+    // ---- Draft persistence ----
+
+    private fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(AUTO_SAVE_DEBOUNCE_MS)
+            saveDraft()
+        }
+    }
+
+    private suspend fun saveDraft() {
+        val s = _state.value
+        if (s.items.isEmpty()) return
+        if (s.saving || s.savedBillId != null) return
+        val json = serializeDraft(s)
+        draftRepository.save(DRAFT_KEY, json)
+    }
+
+    private fun serializeDraft(s: BillingUiState): String {
+        val sb = StringBuilder()
+        sb.appendLine(s.billNumber)
+        sb.appendLine(s.billDate)
+        sb.appendLine(s.billTime)
+        sb.appendLine(s.discountText)
+        sb.appendLine(s.discountPaise)
+        sb.appendLine(s.waitingMode)
+        sb.appendLine(s.items.size)
+        for (item in s.items) {
+            sb.appendLine(item.productId ?: "")
+            sb.appendLine(item.productName)
+            sb.appendLine(item.quantity)
+            sb.appendLine(item.ratePaise)
+            sb.appendLine(item.amountPaise)
+        }
+        return sb.toString()
+    }
+
+    private fun restoreDraft(data: String): BillingUiState? {
+        return try {
+            val lines = data.lines()
+            var idx = 0
+            fun next(): String = lines[idx++]
+
+            val billNumber = next()
+            val billDate = next()
+            val billTime = next()
+            val discountText = next()
+            val discountPaise = next().toLongOrNull() ?: 0L
+            val waitingMode = next().toBooleanStrictOrNull() ?: false
+            val itemCount = next().toIntOrNull() ?: 0
+            val items = mutableListOf<DraftItem>()
+            for (i in 0 until itemCount) {
+                val productId = next().ifEmpty { null }
+                val productName = next()
+                val quantity = next()
+                val ratePaise = next().toLongOrNull() ?: 0L
+                val amountPaise = next().toLongOrNull() ?: 0L
+                items.add(
+                    DraftItem(
+                        key = ++itemKey,
+                        productId = productId,
+                        productName = productName,
+                        quantity = quantity,
+                        ratePaise = ratePaise,
+                        amountPaise = amountPaise
+                    )
+                )
+            }
+            val subtotal = items.sumOf { it.amountPaise }
+            val total = BillCalculator.grandTotalPaise(subtotal, discountPaise)
+            BillingUiState(
+                billNumber = billNumber,
+                billDate = billDate,
+                billTime = billTime,
+                items = items,
+                subtotalPaise = subtotal,
+                discountText = discountText,
+                discountPaise = discountPaise,
+                totalPaise = total,
+                waitingMode = waitingMode,
+                draftRestored = true
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 }

@@ -4,8 +4,11 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grocery.billing.data.entity.ProductPriceOption
+import com.grocery.billing.data.repository.DraftRepository
 import com.grocery.billing.data.repository.ProductRepository
 import com.grocery.billing.money.Money
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,11 +31,13 @@ data class ProductEditUiState(
     val extraPrices: List<ExtraPriceDraft> = emptyList(),
     val error: String? = null,
     val isEditing: Boolean = false,
-    val saved: Boolean = false
+    val saved: Boolean = false,
+    val draftRestored: Boolean = false
 )
 
 class ProductEditViewModel(
     private val productRepository: ProductRepository,
+    private val draftRepository: DraftRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -41,10 +46,29 @@ class ProductEditViewModel(
 
     private val productId = savedStateHandle.get<String>("productId")
     private var extraKey = 0L
+    private var autoSaveJob: Job? = null
+
+    companion object {
+        private const val DRAFT_KEY_PREFIX = "product_edit:"
+        private const val AUTO_SAVE_DEBOUNCE_MS = 800L
+    }
 
     init {
         viewModelScope.launch {
+            val draftKey = DRAFT_KEY_PREFIX + (productId ?: "new")
+            val draft = draftRepository.get(draftKey)
+
             val existing = productId?.let { productRepository.getById(it) }
+
+            if (draft != null) {
+                val restored = restoreDraft(draft.data)
+                if (restored != null) {
+                    extraKey = restored.extraPrices.maxOfOrNull { it.key }?.plus(1) ?: 0L
+                    _state.value = restored.copy(draftRestored = true)
+                    return@launch
+                }
+            }
+
             _state.value = if (existing != null) {
                 ProductEditUiState(
                     originalId = existing.id,
@@ -70,23 +94,28 @@ class ProductEditViewModel(
 
     fun onIdChange(value: String) {
         _state.update { it.copy(id = value, error = null) }
+        scheduleAutoSave()
     }
 
     fun onNameChange(value: String) {
         _state.update { it.copy(name = value, error = null) }
+        scheduleAutoSave()
     }
 
     fun onPriceChange(value: String) {
         val cleaned = value.filter { it.isDigit() || it == '.' }
         _state.update { it.copy(priceText = cleaned, error = null) }
+        scheduleAutoSave()
     }
 
     fun onUnitChange(value: String) {
         _state.update { it.copy(unit = value, error = null) }
+        scheduleAutoSave()
     }
 
     fun onBarcodeChange(value: String) {
         _state.update { it.copy(barcode = value, error = null) }
+        scheduleAutoSave()
     }
 
     fun onExtraPriceChange(key: Long, value: String) {
@@ -99,6 +128,7 @@ class ProductEditViewModel(
                 error = null
             )
         }
+        scheduleAutoSave()
     }
 
     fun onExtraUnitChange(key: Long, value: String) {
@@ -110,14 +140,21 @@ class ProductEditViewModel(
                 error = null
             )
         }
+        scheduleAutoSave()
     }
 
     fun addExtraPrice() {
         _state.update { it.copy(extraPrices = it.extraPrices + ExtraPriceDraft(key = ++extraKey, priceText = "", unit = "")) }
+        scheduleAutoSave()
     }
 
     fun removeExtraPrice(key: Long) {
         _state.update { it.copy(extraPrices = it.extraPrices.filterNot { d -> d.key == key }) }
+        scheduleAutoSave()
+    }
+
+    fun clearDraftError() {
+        _state.update { it.copy(draftRestored = false) }
     }
 
     fun save() {
@@ -163,10 +200,80 @@ class ProductEditViewModel(
                 if (extras.isNotEmpty()) {
                     productRepository.replaceExtraPrices(s.id, extras)
                 }
+                deleteDraft()
                 _state.update { it.copy(saved = true) }
             } else {
                 _state.update { it.copy(error = error) }
             }
+        }
+    }
+
+    private fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(AUTO_SAVE_DEBOUNCE_MS)
+            saveDraft()
+        }
+    }
+
+    private suspend fun saveDraft() {
+        val s = _state.value
+        if (s.id.isEmpty() && s.name.isEmpty() && s.priceText.isEmpty() && s.extraPrices.isEmpty()) return
+        val draftKey = DRAFT_KEY_PREFIX + (productId ?: "new")
+        val json = serializeDraft(s)
+        draftRepository.save(draftKey, json)
+    }
+
+    private suspend fun deleteDraft() {
+        val draftKey = DRAFT_KEY_PREFIX + (productId ?: "new")
+        draftRepository.delete(draftKey)
+    }
+
+    private fun serializeDraft(s: ProductEditUiState): String {
+        val sb = StringBuilder()
+        sb.appendLine(s.originalId ?: "")
+        sb.appendLine(s.id)
+        sb.appendLine(s.name)
+        sb.appendLine(s.priceText)
+        sb.appendLine(s.unit)
+        sb.appendLine(s.barcode)
+        sb.appendLine(s.extraPrices.size)
+        for (ep in s.extraPrices) {
+            sb.appendLine(ep.priceText)
+            sb.appendLine(ep.unit)
+        }
+        return sb.toString()
+    }
+
+    private fun restoreDraft(data: String): ProductEditUiState? {
+        return try {
+            val lines = data.lines()
+            var idx = 0
+            fun next(): String = lines[idx++]
+
+            val originalId = next().ifEmpty { null }
+            val id = next()
+            val name = next()
+            val priceText = next()
+            val unit = next()
+            val barcode = next()
+            val extraCount = next().toIntOrNull() ?: 0
+            val extras = mutableListOf<ExtraPriceDraft>()
+            for (i in 0 until extraCount) {
+                extras.add(ExtraPriceDraft(key = i.toLong(), priceText = next(), unit = next()))
+            }
+            ProductEditUiState(
+                originalId = originalId,
+                id = id,
+                name = name,
+                priceText = priceText,
+                unit = unit,
+                barcode = barcode,
+                extraPrices = extras,
+                isEditing = originalId != null
+            )
+        } catch (_: Exception) {
+            null
         }
     }
 }

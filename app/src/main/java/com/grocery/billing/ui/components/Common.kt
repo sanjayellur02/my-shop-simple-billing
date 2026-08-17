@@ -27,10 +27,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import com.grocery.billing.util.BarcodeGenerator
 
 /** A big, thumb-friendly button used throughout the app. */
 @Composable
@@ -176,5 +181,32 @@ fun EmptyState(text: String, modifier: Modifier = Modifier) {
     ) {
         Spacer(Modifier.size(4.dp))
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+fun BarcodeImage(
+    barcode: String?,
+    modifier: Modifier = Modifier
+) {
+    if (barcode.isNullOrBlank()) return
+    val bitmap = remember(barcode) { BarcodeGenerator.generate(barcode) }
+    if (bitmap != null) {
+        Column(
+            modifier = modifier,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "Barcode $barcode",
+                contentScale = ContentScale.FillWidth,
+                modifier = modifier.fillMaxWidth()
+            )
+            Text(
+                text = barcode,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
     }
 }

@@ -1,9 +1,11 @@
 package com.grocery.billing.share
 
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 
 /**
  * Launches WhatsApp / SMS / system share. Never sends anything silently -
@@ -11,30 +13,40 @@ import android.net.Uri
  */
 object ShareLauncher {
 
+    private const val TAG = "ShareLauncher"
+
     /** Tries the WhatsApp app with the number and message; falls back to wa.me. */
     fun openWhatsApp(context: Context, phoneNumber: String, text: String) {
         val digits = phoneNumber.filter { it.isDigit() }
-        val sendToWa = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$digits")).apply {
-            setPackage("com.whatsapp")
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-        if (sendToWa.resolveActivity(context.packageManager) != null) {
+        try {
+            val sendToWa = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$digits")).apply {
+                setPackage("com.whatsapp")
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
             context.startActivity(sendToWa)
             return
+        } catch (_: ActivityNotFoundException) { }
+        try {
+            val waMe = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://wa.me/$digits?text=" + Uri.encode(text))
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(waMe)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app can handle WhatsApp share", e)
         }
-        val waMe = Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse("https://wa.me/$digits?text=" + Uri.encode(text))
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(waMe)
     }
 
     fun openSms(context: Context, phoneNumber: String, text: String) {
-        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${phoneNumber.trim()}")).apply {
-            putExtra(Intent.EXTRA_TEXT, text)
-            putExtra("sms_body", text)
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${phoneNumber.trim()}")).apply {
+                putExtra(Intent.EXTRA_TEXT, text)
+                putExtra("sms_body", text)
+            }
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app can handle SMS", e)
         }
-        context.startActivity(intent)
     }
 
     /**
@@ -50,18 +62,18 @@ object ShareLauncher {
     ) {
         val jid = waJid(phoneNumber)
         if (jid != null) {
-            val direct = Intent(Intent.ACTION_SEND).apply {
-                component = ComponentName("com.whatsapp", "com.whatsapp.ContactPicker")
-                type = "application/pdf"
-                putExtra(Intent.EXTRA_STREAM, pdfUri)
-                putExtra("jid", jid)
-                if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            if (direct.resolveActivity(context.packageManager) != null) {
+            try {
+                val direct = Intent(Intent.ACTION_SEND).apply {
+                    component = ComponentName("com.whatsapp", "com.whatsapp.ContactPicker")
+                    type = "application/pdf"
+                    putExtra(Intent.EXTRA_STREAM, pdfUri)
+                    putExtra("jid", jid)
+                    if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
                 context.startActivity(direct)
                 return
-            }
+            } catch (_: ActivityNotFoundException) { }
         }
         openWhatsAppPdf(context, pdfUri, caption)
     }
@@ -72,32 +84,40 @@ object ShareLauncher {
      * if WhatsApp is not installed the PDF is offered through the share sheet.
      */
     fun openWhatsAppPdf(context: Context, pdfUri: Uri, caption: String = "") {
-        val whatsapp = Intent(Intent.ACTION_SEND).apply {
-            type = "application/pdf"
-            setPackage("com.whatsapp")
-            putExtra(Intent.EXTRA_STREAM, pdfUri)
-            if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        if (whatsapp.resolveActivity(context.packageManager) != null) {
+        try {
+            val whatsapp = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                setPackage("com.whatsapp")
+                putExtra(Intent.EXTRA_STREAM, pdfUri)
+                if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
             context.startActivity(whatsapp)
             return
+        } catch (_: ActivityNotFoundException) { }
+        try {
+            val generic = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, pdfUri)
+                if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(generic, "Share Bill (PDF)"))
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app can handle PDF share", e)
         }
-        val generic = Intent(Intent.ACTION_SEND).apply {
-            type = "application/pdf"
-            putExtra(Intent.EXTRA_STREAM, pdfUri)
-            if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        context.startActivity(Intent.createChooser(generic, "Share Bill (PDF)"))
     }
 
     fun openShareSheet(context: Context, text: String) {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share Bill"))
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app can handle share sheet", e)
         }
-        context.startActivity(Intent.createChooser(intent, "Share Bill"))
     }
 
     fun isValidPhoneNumber(input: String): Boolean {
