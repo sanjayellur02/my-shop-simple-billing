@@ -5,23 +5,35 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.grocery.billing.ui.ViewModelFactory
 import com.grocery.billing.ui.AppNavHost
 import com.grocery.billing.ui.billing.BillingViewModel
+import com.grocery.billing.ui.lock.LockScreen
+import com.grocery.billing.ui.lock.LockViewModel
 import com.grocery.billing.ui.theme.GroceryTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val factory: ViewModelFactory by lazy {
         ViewModelFactory((application as GroceryApp).container)
     }
 
+    private val lockViewModel: LockViewModel by viewModels { factory }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             GroceryTheme {
-                GroceryAppRoot(factory)
+                val locked by lockViewModel.locked.collectAsState()
+                if (locked) {
+                    LockScreen(lockViewModel, this@MainActivity)
+                } else {
+                    GroceryAppRoot(factory)
+                }
             }
         }
     }

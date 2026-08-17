@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,7 +42,7 @@ fun BillHistoryScreen(navController: NavHostController, factory: ViewModelFactor
     val period by viewModel.period.collectAsState()
 
     ScreenScaffold(title = "Bill History", onBack = { navController.popBackStack() }) {
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp).imePadding()) {
             OutlinedTextField(
                 value = query,
                 onValueChange = viewModel::onQueryChange,

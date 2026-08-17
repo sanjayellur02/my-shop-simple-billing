@@ -2,6 +2,7 @@ package com.grocery.billing.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.grocery.billing.data.lock.AppLockManager
 import com.grocery.billing.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,11 +19,14 @@ data class SettingsUiState(
     val customerThankYou: String = "",
     val showShopAddress: Boolean = true,
     val allowPriceOverride: Boolean = true,
+    val lockEnabled: Boolean = false,
+    val fingerprintEnabled: Boolean = false,
     val saved: Boolean = false
 )
 
 class SettingsViewModel(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val lockManager: AppLockManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -39,7 +43,9 @@ class SettingsViewModel(
                     thankYou = s.thankYou,
                     customerThankYou = s.customerThankYou,
                     showShopAddress = s.showShopAddress,
-                    allowPriceOverride = s.allowPriceOverride
+                    allowPriceOverride = s.allowPriceOverride,
+                    lockEnabled = lockManager.isPinSet(),
+                    fingerprintEnabled = lockManager.isFingerprintEnabled()
                 )
             }
         }
@@ -75,5 +81,23 @@ class SettingsViewModel(
 
     fun clearSaved() {
         _state.update { it.copy(saved = false) }
+    }
+
+    fun setLockPin(pin: String) {
+        lockManager.setPin(pin)
+        _state.update { it.copy(lockEnabled = true, fingerprintEnabled = false, saved = false) }
+    }
+
+    /** Returns true when the PIN was correct and the lock was turned off. */
+    fun disableLock(currentPin: String): Boolean {
+        if (!lockManager.verifyPin(currentPin)) return false
+        lockManager.disable()
+        _state.update { it.copy(lockEnabled = false, fingerprintEnabled = false, saved = false) }
+        return true
+    }
+
+    fun setFingerprintEnabled(enabled: Boolean) {
+        lockManager.setFingerprintEnabled(enabled)
+        _state.update { it.copy(fingerprintEnabled = enabled, saved = false) }
     }
 }

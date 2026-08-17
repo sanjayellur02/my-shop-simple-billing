@@ -60,6 +60,7 @@ data class BillingUiState(
     val selectedUnit: String = "",
     val allowPriceOverride: Boolean = true,
     val heldCount: Int = 0,
+    val waitingMode: Boolean = false,
     val scanNonce: Int = 0,
     val saving: Boolean = false,
     val savedBillId: Long? = null,
@@ -114,6 +115,23 @@ class BillingViewModel(
                     billNumber = next,
                     billDate = Dates.todayDateString(),
                     billTime = Dates.timeString(),
+                    heldCount = s.heldCount,
+                    allowPriceOverride = s.allowPriceOverride
+                )
+            }
+        }
+    }
+
+    /** Starts a fresh bill in waiting mode: items are added without price prompts. */
+    fun startWaitingBill() {
+        viewModelScope.launch {
+            val next = BillNumbers.format(billRepository.nextBillNumber())
+            _state.update { s ->
+                BillingUiState(
+                    billNumber = next,
+                    billDate = Dates.todayDateString(),
+                    billTime = Dates.timeString(),
+                    waitingMode = true,
                     heldCount = s.heldCount,
                     allowPriceOverride = s.allowPriceOverride
                 )
@@ -182,6 +200,7 @@ class BillingViewModel(
                 }
             }
             val single = options.singleOrNull()
+            val skipPricing = _state.value.waitingMode
             _state.update {
                 it.copy(
                     selectedProduct = product,
@@ -189,11 +208,11 @@ class BillingViewModel(
                     searchResults = emptyList(),
                     searching = false,
                     quantityText = "1",
-                    rateText = single?.let { o -> Money.paiseToNumber(o.pricePaise) } ?: "",
-                    selectedUnit = single?.unit ?: "",
+                    rateText = if (skipPricing) "" else single?.let { o -> Money.paiseToNumber(o.pricePaise) } ?: "",
+                    selectedUnit = if (skipPricing) "" else single?.unit ?: "",
                     priceOptions = options,
-                    showPricePicker = options.size > 1,
-                    showRateEditor = options.isEmpty(),
+                    showPricePicker = !skipPricing && options.size > 1,
+                    showRateEditor = !skipPricing && options.isEmpty(),
                     error = null
                 )
             }
@@ -437,7 +456,9 @@ class BillingViewModel(
                 discountPaise = s.discountPaise,
                 totalPaise = s.totalPaise
             )
-            if (id > 0) startNewBill()
+            if (id > 0) {
+                if (_state.value.waitingMode) startWaitingBill() else startNewBill()
+            }
         }
     }
 

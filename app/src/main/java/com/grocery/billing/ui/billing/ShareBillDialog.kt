@@ -68,9 +68,13 @@ fun ShareBillDialog(
     }
 
     fun shareWhatsAppPdf() {
+        if (!ShareLauncher.isValidPhoneNumber(number)) {
+            error = "Please enter a valid mobile number."
+            return
+        }
         val uri = BillPdf.generateShareUri(context, data)
         if (uri != null) {
-            ShareLauncher.openWhatsAppPdf(context, uri, caption = "Bill ${data.billNumber}")
+            ShareLauncher.openWhatsAppPdfToNumber(context, uri, number, caption = "Bill ${data.billNumber}")
             onDismiss()
         } else {
             ShareLauncher.openWhatsApp(context, number, data.text)
@@ -92,7 +96,7 @@ fun ShareBillDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("Mobile Number (for SMS)") },
+                    label = { Text("Mobile Number") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                 )
                 OutlinedButton(
@@ -120,7 +124,7 @@ fun ShareBillDialog(
                     onDismiss()
                 }
                 Text(
-                    "WhatsApp sends the bill as a PDF; you pick the recipient inside WhatsApp.",
+                    "WhatsApp opens that customer's chat with the bill PDF ready to send.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

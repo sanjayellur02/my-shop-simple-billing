@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -74,22 +78,37 @@ fun WaitingCustomersScreen(
         title = "Waiting Customers",
         onBack = { navController.popBackStack() }
     ) {
-        if (heldBills.isEmpty()) {
-            EmptyState(
-                "No waiting customers.\nHold a bill to park it here.",
-                modifier = Modifier.padding(top = 64.dp)
-            )
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(heldBills, key = { it.heldBillId }) { held ->
-                    HeldBillRow(
-                        held = held,
-                        onResume = { resumeAndNavigate(held.heldBillId, toReview = false) },
-                        onEdit = { editingBill = held },
-                        onDelete = { pendingDelete = held },
-                        onComplete = { resumeAndNavigate(held.heldBillId, toReview = true) }
-                    )
-                    HorizontalDivider()
+        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+            Button(
+                onClick = {
+                    billingViewModel.startWaitingBill()
+                    navController.navigate(Routes.BILLING)
+                },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Add Waiting Bill")
+            }
+            Spacer(Modifier.height(12.dp))
+
+            if (heldBills.isEmpty()) {
+                EmptyState(
+                    "No waiting customers.\nTap \"Add Waiting Bill\" to park a bill here.",
+                    modifier = Modifier.padding(top = 64.dp).align(Alignment.CenterHorizontally)
+                )
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(heldBills, key = { it.heldBillId }) { held ->
+                        HeldBillRow(
+                            held = held,
+                            onResume = { resumeAndNavigate(held.heldBillId, toReview = false) },
+                            onEdit = { editingBill = held },
+                            onDelete = { pendingDelete = held },
+                            onComplete = { resumeAndNavigate(held.heldBillId, toReview = true) }
+                        )
+                        HorizontalDivider()
+                    }
                 }
             }
         }

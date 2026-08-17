@@ -130,7 +130,7 @@ fun BillingScreen(
     }
 
     ScreenScaffold(
-        title = "Billing",
+        title = if (state.waitingMode) "Add Waiting Bill" else "Billing",
         onBack = {
             if (state.items.isNotEmpty()) showDiscardDialog = true
             else navController.popBackStack()
@@ -147,6 +147,13 @@ fun BillingScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (state.waitingMode) {
+                Text(
+                    "Add items and quantities now. Prices can be set later from Waiting Customers.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(Modifier.height(6.dp))
 
             OutlinedTextField(
@@ -270,37 +277,41 @@ fun BillingScreen(
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Hold Bill")
+                        Text(if (state.waitingMode) "Hold for Waiting Customer" else "Hold Bill")
                     }
-                    OutlinedButton(
-                        onClick = {
-                            if (state.items.isNotEmpty()) showNewBillDialog = true
-                            else billingViewModel.startNewBill()
-                        },
-                        modifier = Modifier.weight(1f).height(52.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("New Bill")
+                    if (!state.waitingMode) {
+                        OutlinedButton(
+                            onClick = {
+                                if (state.items.isNotEmpty()) showNewBillDialog = true
+                                else billingViewModel.startNewBill()
+                            },
+                            modifier = Modifier.weight(1f).height(52.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("New Bill")
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        if (state.items.any { it.ratePaise <= 0L }) {
-                            navController.navigate(Routes.pricing("review"))
-                        } else {
-                            navController.navigate(Routes.BILL_REVIEW)
-                        }
-                    },
-                    enabled = state.items.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("Payment")
+                if (!state.waitingMode) {
+                    Button(
+                        onClick = {
+                            if (state.items.any { it.ratePaise <= 0L }) {
+                                navController.navigate(Routes.pricing("review"))
+                            } else {
+                                navController.navigate(Routes.BILL_REVIEW)
+                            }
+                        },
+                        enabled = state.items.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Payment")
+                    }
                 }
             }
         }
@@ -518,7 +529,7 @@ private fun SelectedProductCard(
                     ),
                     keyboardActions = KeyboardActions(onDone = { onQtySubmit() }),
                     textStyle = MaterialTheme.typography.titleMedium.copy(
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Start
                     ),
                     placeholder = { Text("1") }
                 )

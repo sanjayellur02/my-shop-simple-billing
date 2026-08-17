@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,6 +36,8 @@ import com.grocery.billing.ui.components.LargeButton
 import com.grocery.billing.ui.components.LargeOutlinedButton
 import com.grocery.billing.ui.components.ScreenScaffold
 import com.grocery.billing.ui.components.SectionHeader
+import com.grocery.billing.ui.lock.PinSetupDialog
+import com.grocery.billing.ui.lock.PinVerifyDialog
 import kotlinx.coroutines.launch
 import java.io.StringReader
 
@@ -51,6 +54,9 @@ fun SettingsScreen(navController: NavHostController, factory: ViewModelFactory) 
 
     var pendingRestoreJson by remember { mutableStateOf<String?>(null) }
     var restoreMessage by remember { mutableStateOf<String?>(null) }
+    var showSetupPin by remember { mutableStateOf(false) }
+    var showDisablePin by remember { mutableStateOf(false) }
+    var lockMessage by remember { mutableStateOf<String?>(null) }
 
     val createFile = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -89,6 +95,7 @@ fun SettingsScreen(navController: NavHostController, factory: ViewModelFactory) 
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
+                .imePadding()
         ) {
             SectionHeader("Shop Details")
             OutlinedTextField(
@@ -183,7 +190,65 @@ fun SettingsScreen(navController: NavHostController, factory: ViewModelFactory) 
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
+            SectionHeader("App Lock")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Lock app with 4-digit PIN", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Require a PIN every time you open the app.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = state.lockEnabled,
+                    onCheckedChange = { on ->
+                        if (on) showSetupPin = true
+                        else showDisablePin = true
+                    }
+                )
+            }
+            lockMessage?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            if (state.lockEnabled) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Use fingerprint to unlock", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Use your fingerprint instead of typing the PIN.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = state.fingerprintEnabled,
+                        onCheckedChange = { on ->
+                            if (on) {
+                                val bm = androidx.biometric.BiometricManager.from(context)
+                                if (bm.canAuthenticate(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG) == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS) {
+                                    viewModel.setFingerprintEnabled(true)
+                                } else {
+                                    lockMessage = "No fingerprint enrolled on this device."
+                                }
+                            } else {
+                                viewModel.setFingerprintEnabled(false)
+                            }
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
             SectionHeader("Data")
             LargeButton(
                 text = "Export Backup",
@@ -223,6 +288,26 @@ fun SettingsScreen(navController: NavHostController, factory: ViewModelFactory) 
                 }
             },
             onDismiss = { pendingRestoreJson = null }
+        )
+    }
+
+    if (showSetupPin) {
+        PinSetupDialog(
+            onDismiss = { showSetupPin = false },
+            onSetPin = { pin ->
+                viewModel.setLockPin(pin)
+                showSetupPin = false
+            }
+        )
+    }
+
+    if (showDisablePin) {
+        PinVerifyDialog(
+            title = "Turn Off App Lock",
+            message = "Enter your current PIN to turn off app lock.",
+            onDismiss = { showDisablePin = false },
+            verify = viewModel::disableLock,
+            onVerified = { showDisablePin = false }
         )
     }
 }
